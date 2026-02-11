@@ -4,7 +4,7 @@ import { createTenant, findTenantByTelegramId } from '../db/repositories/tenant.
 import { createBot, findBotsByTenantId } from '../db/repositories/bot.repository'
 
 interface SessionData {
-  step: 'idle' | 'awaiting_token'
+  step: 'idle' | 'awaiting_token' | 'awaiting_bug_report'
 }
 
 type MasterContext = Context & SessionFlavor<SessionData>
@@ -106,6 +106,7 @@ export function createMasterBot() {
       `/start - Welcome message\n` +
       `/newbot - Create a new booth bot\n` +
       `/mybots - List your bots\n` +
+      `/bug - Report a bug\n` +
       `/help - Show this message\n\n` +
       `🌐 <b>Web Dashboard:</b>\n` +
       `https://boothbot-dashboard.vercel.app\n\n` +
@@ -116,8 +117,38 @@ export function createMasterBot() {
     )
   })
 
-  // Handle token submission
+  // /bug command
+  bot.command('bug', async (ctx) => {
+    const bugText = ctx.message?.text?.replace('/bug', '').trim()
+    
+    if (bugText && bugText.length > 5) {
+      // Inline bug report
+      await submitBugReport(ctx, bugText)
+    } else {
+      // Ask for bug report
+      ctx.session.step = 'awaiting_bug_report'
+      await ctx.reply(
+        `🐛 <b>Report a Bug</b>\n\n` +
+        `Please describe the issue you encountered:\n\n` +
+        `<i>Include what you were doing, what you expected, and what happened instead.</i>`,
+        { parse_mode: 'HTML' }
+      )
+    }
+  })
+
+  // Handle text messages based on session state
   bot.on('message:text', async (ctx) => {
+    // Handle bug report submission
+    if (ctx.session.step === 'awaiting_bug_report') {
+      const bugText = ctx.message.text.trim()
+      if (bugText.length < 5) {
+        await ctx.reply('Please provide a more detailed description (at least 5 characters).')
+        return
+      }
+      await submitBugReport(ctx, bugText)
+      return
+    }
+
     if (ctx.session.step !== 'awaiting_token') return
     
     const token = ctx.message.text.trim()
@@ -196,4 +227,30 @@ export function createMasterBot() {
   })
 
   return bot
+}
+
+async function submitBugReport(ctx: MasterContext, report: string): Promise<void> {
+  try {
+    const { error } = await supabase
+      .from('bb_bugs')
+      .insert({
+        telegram_id: ctx.from?.id,
+        username: ctx.from?.username || null,
+        report
+      })
+
+    if (error) throw error
+
+    ctx.session.step = 'idle'
+    await ctx.reply(
+      `✅ <b>Bug Report Submitted</b>\n\n` +
+      `Thank you for helping us improve BoothBot!\n\n` +
+      `Your report has been logged and we'll look into it.`,
+      { parse_mode: 'HTML' }
+    )
+  } catch (error) {
+    console.error('Failed to submit bug report:', error)
+    await ctx.reply('❌ Failed to submit bug report. Please try again later.')
+    ctx.session.step = 'idle'
+  }
 }
