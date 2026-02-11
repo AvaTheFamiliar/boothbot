@@ -1,0 +1,280 @@
+import type { BotContext } from '../types'
+import { ConversationState } from '../types'
+import {
+  getStartKeyboard,
+  getSkipKeyboard,
+  getConfirmKeyboard,
+  getEditFieldsKeyboard
+} from '../keyboards'
+import { createVisitor, findVisitorByTelegramId } from '../../db/repositories/visitor.repository'
+import { isValidEmail, isValidPhone, isValidWalletAddress } from '../../lib/validation'
+import { resetSession } from '../session'
+
+export function handleStartCommand() {
+  return async (ctx: BotContext) => {
+    if (!ctx.eventId) {
+      await ctx.reply('Welcome! Please use a valid event link to register.')
+      return
+    }
+
+    const existingVisitor = await findVisitorByTelegramId(ctx.eventId, ctx.from!.id)
+
+    if (existingVisitor) {
+      await ctx.reply(
+        'You are already registered for this event! Thank you for your interest.',
+        { reply_markup: getStartKeyboard() }
+      )
+      return
+    }
+
+    await ctx.reply(
+      'Welcome to our event! Click the button below to register as a visitor.',
+      { reply_markup: getStartKeyboard() }
+    )
+  }
+}
+
+export function handleRegisterVisitor() {
+  return async (ctx: BotContext) => {
+    if (!ctx.eventId) {
+      await ctx.reply('Please start from a valid event link.')
+      return
+    }
+
+    ctx.session.state = ConversationState.COLLECTING_NAME
+    await ctx.reply("Let's get started! What's your full name?")
+  }
+}
+
+export function handleNameInput() {
+  return async (ctx: BotContext) => {
+    if (ctx.session.state !== ConversationState.COLLECTING_NAME) return
+
+    const name = ctx.message?.text?.trim()
+    if (!name || name.length < 2) {
+      await ctx.reply('Please provide a valid name.')
+      return
+    }
+
+    ctx.session.visitorData.full_name = name
+    ctx.session.state = ConversationState.COLLECTING_EMAIL
+
+    await ctx.reply(
+      "Great! What's your email address?",
+      { reply_markup: getSkipKeyboard('email') }
+    )
+  }
+}
+
+export function handleEmailInput() {
+  return async (ctx: BotContext) => {
+    if (ctx.session.state !== ConversationState.COLLECTING_EMAIL) return
+
+    const email = ctx.message?.text?.trim()
+    if (email && !isValidEmail(email)) {
+      await ctx.reply('Please provide a valid email address.')
+      return
+    }
+
+    if (email) {
+      ctx.session.visitorData.email = email
+    }
+
+    ctx.session.state = ConversationState.COLLECTING_PHONE
+    await ctx.reply(
+      "What's your phone number?",
+      { reply_markup: getSkipKeyboard('phone') }
+    )
+  }
+}
+
+export function handlePhoneInput() {
+  return async (ctx: BotContext) => {
+    if (ctx.session.state !== ConversationState.COLLECTING_PHONE) return
+
+    const phone = ctx.message?.text?.trim()
+    if (phone && !isValidPhone(phone)) {
+      await ctx.reply('Please provide a valid phone number.')
+      return
+    }
+
+    if (phone) {
+      ctx.session.visitorData.phone = phone
+    }
+
+    ctx.session.state = ConversationState.COLLECTING_WALLET
+    await ctx.reply(
+      "What's your wallet address? (Ethereum or Solana)",
+      { reply_markup: getSkipKeyboard('wallet') }
+    )
+  }
+}
+
+export function handleWalletInput() {
+  return async (ctx: BotContext) => {
+    if (ctx.session.state !== ConversationState.COLLECTING_WALLET) return
+
+    const wallet = ctx.message?.text?.trim()
+    if (wallet && !isValidWalletAddress(wallet)) {
+      await ctx.reply('Please provide a valid Ethereum or Solana wallet address.')
+      return
+    }
+
+    if (wallet) {
+      ctx.session.visitorData.wallet_address = wallet
+    }
+
+    ctx.session.state = ConversationState.COLLECTING_NOTES
+    await ctx.reply(
+      'Any additional notes or interests?',
+      { reply_markup: getSkipKeyboard('notes') }
+    )
+  }
+}
+
+export function handleNotesInput() {
+  return async (ctx: BotContext) => {
+    if (ctx.session.state !== ConversationState.COLLECTING_NOTES) return
+
+    const notes = ctx.message?.text?.trim()
+    if (notes) {
+      ctx.session.visitorData.notes = notes
+    }
+
+    ctx.session.state = ConversationState.CONFIRMING
+    await showConfirmation(ctx)
+  }
+}
+
+export function handleSkip() {
+  return async (ctx: BotContext) => {
+    const action = ctx.callbackQuery?.data?.split('_')[1]
+
+    switch (ctx.session.state) {
+      case ConversationState.COLLECTING_EMAIL:
+        ctx.session.state = ConversationState.COLLECTING_PHONE
+        await ctx.reply(
+          "What's your phone number?",
+          { reply_markup: getSkipKeyboard('phone') }
+        )
+        break
+
+      case ConversationState.COLLECTING_PHONE:
+        ctx.session.state = ConversationState.COLLECTING_WALLET
+        await ctx.reply(
+          "What's your wallet address? (Ethereum or Solana)",
+          { reply_markup: getSkipKeyboard('wallet') }
+        )
+        break
+
+      case ConversationState.COLLECTING_WALLET:
+        ctx.session.state = ConversationState.COLLECTING_NOTES
+        await ctx.reply(
+          'Any additional notes or interests?',
+          { reply_markup: getSkipKeyboard('notes') }
+        )
+        break
+
+      case ConversationState.COLLECTING_NOTES:
+        ctx.session.state = ConversationState.CONFIRMING
+        await showConfirmation(ctx)
+        break
+    }
+
+    await ctx.answerCallbackQuery()
+  }
+}
+
+export function handleConfirm() {
+  return async (ctx: BotContext) => {
+    if (!ctx.eventId) {
+      await ctx.reply('Session expired. Please start again.')
+      resetSession(ctx.botId, ctx.from!.id)
+      return
+    }
+
+    try {
+      await createVisitor({
+        event_id: ctx.eventId,
+        telegram_id: ctx.from!.id,
+        telegram_username: ctx.from!.username,
+        ...ctx.session.visitorData
+      })
+
+      await ctx.reply(
+        "Thank you for registering! We'll be in touch. Enjoy the event!"
+      )
+
+      resetSession(ctx.botId, ctx.from!.id)
+    } catch (error) {
+      await ctx.reply('Failed to save your information. Please try again.')
+    }
+
+    await ctx.answerCallbackQuery()
+  }
+}
+
+export function handleEdit() {
+  return async (ctx: BotContext) => {
+    await ctx.reply(
+      'What would you like to edit?',
+      { reply_markup: getEditFieldsKeyboard() }
+    )
+    await ctx.answerCallbackQuery()
+  }
+}
+
+export function handleEditField() {
+  return async (ctx: BotContext) => {
+    const field = ctx.callbackQuery?.data?.split('_')[1]
+
+    switch (field) {
+      case 'name':
+        ctx.session.state = ConversationState.COLLECTING_NAME
+        await ctx.reply("What's your full name?")
+        break
+      case 'email':
+        ctx.session.state = ConversationState.COLLECTING_EMAIL
+        await ctx.reply("What's your email address?", { reply_markup: getSkipKeyboard('email') })
+        break
+      case 'phone':
+        ctx.session.state = ConversationState.COLLECTING_PHONE
+        await ctx.reply("What's your phone number?", { reply_markup: getSkipKeyboard('phone') })
+        break
+      case 'wallet':
+        ctx.session.state = ConversationState.COLLECTING_WALLET
+        await ctx.reply("What's your wallet address?", { reply_markup: getSkipKeyboard('wallet') })
+        break
+      case 'notes':
+        ctx.session.state = ConversationState.COLLECTING_NOTES
+        await ctx.reply('Any additional notes?', { reply_markup: getSkipKeyboard('notes') })
+        break
+    }
+
+    await ctx.answerCallbackQuery()
+  }
+}
+
+export function handleBackToConfirm() {
+  return async (ctx: BotContext) => {
+    ctx.session.state = ConversationState.CONFIRMING
+    await showConfirmation(ctx)
+    await ctx.answerCallbackQuery()
+  }
+}
+
+async function showConfirmation(ctx: BotContext) {
+  const { full_name, email, phone, wallet_address, notes } = ctx.session.visitorData
+
+  const summary = `
+Please confirm your information:
+
+Name: ${full_name || 'Not provided'}
+Email: ${email || 'Not provided'}
+Phone: ${phone || 'Not provided'}
+Wallet: ${wallet_address || 'Not provided'}
+Notes: ${notes || 'Not provided'}
+  `.trim()
+
+  await ctx.reply(summary, { reply_markup: getConfirmKeyboard() })
+}
