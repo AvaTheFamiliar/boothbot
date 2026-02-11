@@ -13,6 +13,9 @@ class BotManager {
     }
 
     const bot = createBotInstance(token, botId)
+    // Initialize bot to fetch bot info (required for handling updates)
+    await bot.init()
+    console.log(`[botManager] Bot ${botId} initialized: @${bot.botInfo?.username}`)
     this.bots.set(botId, bot)
     return bot
   }
