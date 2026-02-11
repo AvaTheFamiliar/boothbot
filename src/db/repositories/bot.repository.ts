@@ -56,3 +56,24 @@ export async function findBotByToken(token: string): Promise<Bot | null> {
   if (error) return null
   return data
 }
+
+export async function deleteBot(id: string): Promise<boolean> {
+  const { error } = await supabase
+    .from('bb_bots')
+    .delete()
+    .eq('id', id)
+
+  return !error
+}
+
+export async function updateBot(id: string, data: Partial<Bot>): Promise<Bot | null> {
+  const { data: bot, error } = await supabase
+    .from('bb_bots')
+    .update(data)
+    .eq('id', id)
+    .select()
+    .single()
+
+  if (error) return null
+  return bot
+}
