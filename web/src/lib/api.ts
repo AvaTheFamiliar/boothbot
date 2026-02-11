@@ -1,117 +1,65 @@
-const API_BASE = '/api'
+const API_URL = 'https://boothbot-api-production.up.railway.app'
 
-interface ApiResponse<T> {
-  success: boolean
+export interface ApiResponse<T = any> {
   data?: T
   error?: string
 }
 
-class ApiClient {
-  private token: string | null = null
-
-  constructor() {
-    this.token = localStorage.getItem('token')
+async function request<T>(endpoint: string, options: RequestInit = {}): Promise<ApiResponse<T>> {
+  const token = localStorage.getItem('token')
+  
+  const headers: HeadersInit = {
+    'Content-Type': 'application/json',
+    ...(token && { Authorization: `Bearer ${token}` }),
+    ...options.headers,
   }
 
-  setToken(token: string) {
-    this.token = token
-    localStorage.setItem('token', token)
-  }
-
-  clearToken() {
-    this.token = null
-    localStorage.removeItem('token')
-  }
-
-  private async request<T>(
-    method: string,
-    path: string,
-    body?: unknown
-  ): Promise<ApiResponse<T>> {
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json'
-    }
-
-    if (this.token) {
-      headers['Authorization'] = `Bearer ${this.token}`
-    }
-
-    const response = await fetch(`${API_BASE}${path}`, {
-      method,
+  try {
+    const response = await fetch(`${API_URL}${endpoint}`, {
+      ...options,
       headers,
-      body: body ? JSON.stringify(body) : undefined
     })
 
-    return response.json()
-  }
+    const data = await response.json()
 
-  async register(email: string, password: string) {
-    return this.request<{ token: string; tenant: { id: string; email: string } }>(
-      'POST',
-      '/auth/register',
-      { email, password }
-    )
-  }
+    if (!response.ok) {
+      return { error: data.error || 'Request failed' }
+    }
 
-  async login(email: string, password: string) {
-    return this.request<{ token: string; tenant: { id: string; email: string } }>(
-      'POST',
-      '/auth/login',
-      { email, password }
-    )
-  }
-
-  async getBots() {
-    return this.request<any[]>('GET', '/bots')
-  }
-
-  async createBot(token: string, username: string, ownerTelegramId?: number) {
-    return this.request<any>('POST', '/bots', {
-      token,
-      username,
-      owner_telegram_id: ownerTelegramId
-    })
-  }
-
-  async deleteBot(botId: string) {
-    return this.request('DELETE', `/bots/${botId}`)
-  }
-
-  async getEvents(botId: string) {
-    return this.request<any[]>('GET', `/events?botId=${botId}`)
-  }
-
-  async createEvent(botId: string, name: string, description?: string) {
-    return this.request<any>('POST', '/events', {
-      bot_id: botId,
-      name,
-      description
-    })
-  }
-
-  async deleteEvent(eventId: string) {
-    return this.request('DELETE', `/events/${eventId}`)
-  }
-
-  async getVisitors(eventId: string) {
-    return this.request<any[]>('GET', `/events/${eventId}/visitors`)
-  }
-
-  async getEventStats(eventId: string) {
-    return this.request<any>('GET', `/events/${eventId}/stats`)
-  }
-
-  async broadcast(eventId: string, message: string) {
-    return this.request<any>('POST', `/events/${eventId}/broadcast`, { message })
-  }
-
-  getQRUrl(eventId: string): string {
-    return `${API_BASE}/events/${eventId}/qr`
-  }
-
-  getExportUrl(eventId: string): string {
-    return `${API_BASE}/events/${eventId}/export`
+    return { data }
+  } catch (error) {
+    return { error: 'Network error' }
   }
 }
 
-export const api = new ApiClient()
+export const api = {
+  register: (email: string, password: string) =>
+    request<{ token: string; tenant: { id: string; email: string } }>('/api/auth/register', {
+      method: 'POST',
+      body: JSON.stringify({ email, password }),
+    }),
+
+  login: (email: string, password: string) =>
+    request<{ token: string; tenant: { id: string; email: string } }>('/api/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ email, password }),
+    }),
+
+  getBots: () => request<any[]>('/api/bots'),
+  
+  createBot: (token: string) =>
+    request<any>('/api/bots', {
+      method: 'POST',
+      body: JSON.stringify({ token }),
+    }),
+
+  getEvents: (botId: string) => request<any[]>(`/api/events?botId=${botId}`),
+  
+  createEvent: (botId: string, name: string, slug: string) =>
+    request<any>('/api/events', {
+      method: 'POST',
+      body: JSON.stringify({ botId, name, slug }),
+    }),
+
+  getVisitors: (eventId: string) => request<any[]>(`/api/events/${eventId}/visitors`),
+}
