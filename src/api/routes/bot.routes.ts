@@ -4,7 +4,7 @@ import { validateBody } from '../../lib/validation'
 import { createBotSchema } from '../../db/schema'
 import {
   createBot,
-  findBotsByTenant,
+  findBotsByTenantId,
   findBotById,
   deleteBot
 } from '../../db/repositories/bot.repository'
@@ -45,7 +45,7 @@ bots.get('/', async (c) => {
   const tenant = c.get('tenant') as JWTPayload
 
   try {
-    const botsList = await findBotsByTenant(tenant.tenantId)
+    const botsList = await findBotsByTenantId(tenant.tenantId)
     return c.json({
       success: true,
       data: botsList
