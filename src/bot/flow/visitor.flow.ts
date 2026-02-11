@@ -36,6 +36,8 @@ export function handleStartCommand() {
 
 export function handleRegisterVisitor() {
   return async (ctx: BotContext) => {
+    try { await ctx.answerCallbackQuery() } catch {}
+
     if (!ctx.eventId) {
       await ctx.reply('Please start from a valid event link.')
       return
@@ -181,7 +183,7 @@ export function handleSkip() {
         break
     }
 
-    await ctx.answerCallbackQuery()
+    try { await ctx.answerCallbackQuery() } catch {}
   }
 }
 
@@ -210,7 +212,7 @@ export function handleConfirm() {
       await ctx.reply('Failed to save your information. Please try again.')
     }
 
-    await ctx.answerCallbackQuery()
+    try { await ctx.answerCallbackQuery() } catch {}
   }
 }
 
@@ -220,7 +222,7 @@ export function handleEdit() {
       'What would you like to edit?',
       { reply_markup: getEditFieldsKeyboard() }
     )
-    await ctx.answerCallbackQuery()
+    try { await ctx.answerCallbackQuery() } catch {}
   }
 }
 
@@ -251,7 +253,7 @@ export function handleEditField() {
         break
     }
 
-    await ctx.answerCallbackQuery()
+    try { await ctx.answerCallbackQuery() } catch {}
   }
 }
 
@@ -259,7 +261,7 @@ export function handleBackToConfirm() {
   return async (ctx: BotContext) => {
     ctx.session.state = ConversationState.CONFIRMING
     await showConfirmation(ctx)
-    await ctx.answerCallbackQuery()
+    try { await ctx.answerCallbackQuery() } catch {}
   }
 }
 
