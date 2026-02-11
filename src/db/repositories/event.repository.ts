@@ -44,6 +44,38 @@ export async function findEventById(id: string): Promise<Event | null> {
   return data
 }
 
+export async function findEventBySlug(botId: string, slug: string): Promise<Event | null> {
+  const { data, error } = await supabase
+    .from('bb_events')
+    .select()
+    .eq('bot_id', botId)
+    .eq('slug', slug)
+    .single()
+
+  if (error) {
+    if (error.code === 'PGRST116') return null
+    throw new Error(`Failed to find event by slug: ${error.message}`)
+  }
+  return data
+}
+
+export async function findDefaultEvent(botId: string): Promise<Event | null> {
+  // Get the most recent event for this bot as the default
+  const { data, error } = await supabase
+    .from('bb_events')
+    .select()
+    .eq('bot_id', botId)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .single()
+
+  if (error) {
+    if (error.code === 'PGRST116') return null
+    return null
+  }
+  return data
+}
+
 export async function findEventsByBot(botId: string): Promise<Event[]> {
   const { data, error } = await supabase
     .from('bb_events')

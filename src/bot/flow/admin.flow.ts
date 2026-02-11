@@ -5,6 +5,7 @@ import { exportVisitorsCSV, findVisitorsByEvent } from '../../db/repositories/vi
 import { createBroadcast } from '../../db/repositories/broadcast.repository'
 import { findBotById } from '../../db/repositories/bot.repository'
 import { InputFile } from 'grammy'
+import { generateQRCode } from '../../lib/qr'
 
 export function handleAdminCommand() {
   return async (ctx: BotContext) => {
@@ -71,6 +72,15 @@ export function handleNewEventCommand() {
   }
 }
 
+function generateSlug(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .slice(0, 50)
+}
+
 export function handleEventNameInput() {
   return async (ctx: BotContext) => {
     const name = ctx.message?.text?.trim()
@@ -79,29 +89,12 @@ export function handleEventNameInput() {
       return
     }
 
-    ctx.session.eventData = { name }
-    ctx.session.state = ConversationState.CREATING_EVENT_SLUG
-
-    await ctx.reply(
-      `Great! Now enter a short slug for the event URL.\n\n` +
-      `<i>Example: ethdenver2026 (lowercase, no spaces)</i>`,
-      { parse_mode: 'HTML' }
-    )
-  }
-}
-
-export function handleEventSlugInput() {
-  return async (ctx: BotContext) => {
-    const slug = ctx.message?.text?.trim().toLowerCase().replace(/[^a-z0-9-]/g, '')
-    if (!slug || slug.length < 2) {
-      await ctx.reply('Please provide a valid slug (letters, numbers, dashes only).')
-      return
-    }
+    const slug = generateSlug(name)
 
     try {
       const event = await createEvent({
         bot_id: ctx.botId,
-        name: ctx.session.eventData?.name || 'Unnamed Event',
+        name,
         slug
       })
 
@@ -109,20 +102,34 @@ export function handleEventSlugInput() {
       ctx.session.eventData = undefined
 
       const botInfo = await ctx.api.getMe()
-      const eventLink = `https://t.me/${botInfo.username}?start=event_${event.id}`
+      const eventLink = `https://t.me/${botInfo.username}?start=${slug}`
 
-      await ctx.reply(
-        `✅ <b>Event Created!</b>\n\n` +
-        `<b>Name:</b> ${event.name}\n` +
-        `<b>Slug:</b> ${slug}\n\n` +
-        `<b>Registration Link:</b>\n<code>${eventLink}</code>\n\n` +
-        `Share this link or generate a QR code from the dashboard!`,
-        { parse_mode: 'HTML' }
+      // Generate and send QR code
+      const qrBuffer = await generateQRCode(eventLink)
+
+      await ctx.replyWithPhoto(
+        new InputFile(qrBuffer, `${slug}-qr.png`),
+        {
+          caption: `✅ <b>Event Created!</b>\n\n` +
+            `<b>Name:</b> ${name}\n` +
+            `<b>Slug:</b> ${slug}\n\n` +
+            `<b>Registration Link:</b>\n<code>${eventLink}</code>\n\n` +
+            `Share this QR code or link at your booth!`,
+          parse_mode: 'HTML'
+        }
       )
     } catch (error: any) {
       await ctx.reply(`Failed to create event: ${error?.message || 'Unknown error'}`)
       ctx.session.state = ConversationState.IDLE
     }
+  }
+}
+
+// Keep for backwards compatibility but no longer used in flow
+export function handleEventSlugInput() {
+  return async (ctx: BotContext) => {
+    // Redirect to name input handler since we auto-generate slugs now
+    return handleEventNameInput()(ctx)
   }
 }
 
@@ -147,7 +154,7 @@ export function handleEventsCommand() {
 
       const botInfo = await ctx.api.getMe()
       const eventList = events.map((e, i) => {
-        const link = `https://t.me/${botInfo.username}?start=event_${e.id}`
+        const link = `https://t.me/${botInfo.username}?start=${e.slug || e.id}`
         return `${i + 1}. <b>${e.name}</b>\n   <code>${link}</code>`
       }).join('\n\n')
 

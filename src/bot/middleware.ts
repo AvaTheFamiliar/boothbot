@@ -1,7 +1,7 @@
 import type { BotContext } from './types'
 import { getSession, setSession } from './session'
 import { checkBillingLimits, getBillingMessage } from '../lib/billing'
-import { findEventById } from '../db/repositories/event.repository'
+import { findEventById, findEventBySlug, findDefaultEvent } from '../db/repositories/event.repository'
 import { findBotById } from '../db/repositories/bot.repository'
 
 export function sessionMiddleware(botId: string) {
@@ -20,14 +20,39 @@ export function sessionMiddleware(botId: string) {
 
 export function eventContextMiddleware() {
   return async (ctx: BotContext, next: () => Promise<void>) => {
-    if (ctx.message?.text?.startsWith('/start event_')) {
-      const eventId = ctx.message.text.split('event_')[1]?.split(' ')[0]
-      if (eventId) {
-        const event = await findEventById(eventId)
-        if (event) {
-          ctx.session.eventId = eventId
-          ctx.eventId = eventId
+    const messageText = ctx.message?.text || ''
+    
+    if (messageText.startsWith('/start ')) {
+      const param = messageText.replace('/start ', '').trim().split(' ')[0]
+      
+      if (param) {
+        let event = null
+        
+        // Check if it's a legacy event_UUID format
+        if (param.startsWith('event_')) {
+          const eventId = param.replace('event_', '')
+          event = await findEventById(eventId)
+        } else {
+          // Try slug lookup first
+          event = await findEventBySlug(ctx.botId, param)
+          
+          // If not found by slug, try as UUID
+          if (!event) {
+            event = await findEventById(param)
+          }
         }
+        
+        if (event) {
+          ctx.session.eventId = event.id
+          ctx.eventId = event.id
+        }
+      }
+    } else if (messageText === '/start') {
+      // No parameter - use default event for this bot
+      const defaultEvent = await findDefaultEvent(ctx.botId)
+      if (defaultEvent) {
+        ctx.session.eventId = defaultEvent.id
+        ctx.eventId = defaultEvent.id
       }
     } else if (ctx.session.eventId) {
       ctx.eventId = ctx.session.eventId
