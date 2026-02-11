@@ -1,4 +1,4 @@
-import bcrypt from 'bcrypt'
+import * as bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
 
 const SALT_ROUNDS = 10
