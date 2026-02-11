@@ -35,25 +35,16 @@ app.route('/webhook', webhookRoutes)
 
 const PORT = Number(process.env.PORT) || 3000
 
-async function start() {
-  try {
-    await testConnection()
-    console.log('Database connected')
-  } catch (error) {
-    console.error('Database connection failed:', error)
-    // Continue anyway for now
-  }
+// Test DB connection (non-blocking)
+testConnection()
+  .then(() => console.log('Database connected'))
+  .catch((err) => console.error('Database connection failed:', err))
 
-  const server = Bun.serve({
-    port: PORT,
-    hostname: '0.0.0.0',
-    fetch: app.fetch
-  })
+// Start server once
+console.log(`Starting server on port ${PORT}...`)
 
-  console.log(`Server running on http://0.0.0.0:${PORT}`)
-  return server
+export default {
+  port: PORT,
+  hostname: '0.0.0.0',
+  fetch: app.fetch,
 }
-
-start()
-
-export default app
