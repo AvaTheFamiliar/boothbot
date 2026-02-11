@@ -72,8 +72,13 @@ export function errorMiddleware() {
   return async (ctx: BotContext, next: () => Promise<void>) => {
     try {
       await next()
-    } catch (error) {
-      await ctx.reply('An error occurred. Please try again or contact support.')
+    } catch (error: any) {
+      console.error('[errorMiddleware] Caught error:', error?.message || error, error?.stack)
+      try {
+        await ctx.reply('An error occurred. Please try again or contact support.')
+      } catch (replyError) {
+        console.error('[errorMiddleware] Failed to send error reply:', replyError)
+      }
     }
   }
 }

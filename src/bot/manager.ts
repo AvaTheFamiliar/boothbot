@@ -42,12 +42,16 @@ class BotManager {
   }
 
   async handleWebhook(botId: string, update: unknown): Promise<void> {
+    console.log(`[botManager] handleWebhook called for bot ${botId}`)
     const bot = await this.getBotInstance(botId)
     if (!bot) {
+      console.error(`[botManager] Bot ${botId} not found in manager or DB`)
       throw new Error('Bot not found')
     }
 
+    console.log(`[botManager] Handling update for bot ${botId}`)
     await bot.handleUpdate(update)
+    console.log(`[botManager] Update handled successfully for bot ${botId}`)
   }
 }
 
