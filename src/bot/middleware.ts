@@ -47,15 +47,22 @@ export function billingMiddleware() {
         return
       }
 
-      const billingStatus = await checkBillingLimits(ctx.botId)
+      // TODO: Get actual contact count from database
+      // For now, mock billing always allows
+      const contactCount = 0
+      const isWithinLimits = checkBillingLimits(contactCount)
 
-      if (!billingStatus.is_within_limits) {
-        await ctx.reply(getBillingMessage(billingStatus))
+      if (!isWithinLimits) {
+        const message = getBillingMessage(contactCount)
+        if (message) {
+          await ctx.reply(message)
+        }
         return
       }
 
       await next()
     } catch (error) {
+      console.error('Billing middleware error:', error)
       await next()
     }
   }
