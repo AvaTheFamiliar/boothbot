@@ -8,6 +8,7 @@ import visitorRoutes from './api/routes/visitor.routes'
 import broadcastRoutes from './api/routes/broadcast.routes'
 import webhookRoutes from './api/routes/webhook.routes'
 import { testConnection } from './db/client'
+import { createMasterBot } from './masterbot'
 
 const app = new Hono()
 
@@ -35,12 +36,28 @@ app.route('/webhook', webhookRoutes)
 
 const PORT = Number(process.env.PORT) || 3000
 
-// Test DB connection (non-blocking)
-testConnection()
-  .then(() => console.log('Database connected'))
-  .catch((err) => console.error('Database connection failed:', err))
+// Initialize
+async function init() {
+  // Test DB connection
+  try {
+    await testConnection()
+    console.log('Database connected')
+  } catch (err) {
+    console.error('Database connection failed:', err)
+  }
 
-// Start server once
+  // Start master bot if token is set
+  const masterBot = createMasterBot()
+  if (masterBot) {
+    // Use long polling for master bot (simpler than webhook for this)
+    masterBot.start({
+      onStart: (info) => console.log(`Master bot @${info.username} started`)
+    })
+  }
+}
+
+init()
+
 console.log(`Starting server on port ${PORT}...`)
 
 export default {

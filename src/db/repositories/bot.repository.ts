@@ -1,54 +1,58 @@
 import { supabase } from '../client'
-import type { Bot } from '../schema'
 
-export interface CreateBotData {
+export interface Bot {
+  id: string
   tenant_id: string
   token: string
   username: string
   owner_telegram_id?: number
+  created_at: string
 }
 
-export async function createBot(data: CreateBotData): Promise<Bot> {
+export async function createBot(data: {
+  tenant_id: string
+  token: string
+  username: string
+  owner_telegram_id?: number
+}): Promise<Bot> {
   const { data: bot, error } = await supabase
     .from('bb_bots')
     .insert(data)
     .select()
     .single()
 
-  if (error) throw new Error(`Failed to create bot: ${error.message}`)
+  if (error) throw error
   return bot
 }
 
 export async function findBotById(id: string): Promise<Bot | null> {
   const { data, error } = await supabase
     .from('bb_bots')
-    .select()
+    .select('*')
     .eq('id', id)
     .single()
 
-  if (error) {
-    if (error.code === 'PGRST116') return null
-    throw new Error(`Failed to find bot: ${error.message}`)
-  }
+  if (error) return null
   return data
 }
 
-export async function findBotsByTenant(tenantId: string): Promise<Bot[]> {
+export async function findBotsByTenantId(tenantId: string): Promise<Bot[]> {
   const { data, error } = await supabase
     .from('bb_bots')
-    .select()
+    .select('*')
     .eq('tenant_id', tenantId)
-    .order('created_at', { ascending: false })
 
-  if (error) throw new Error(`Failed to find bots: ${error.message}`)
+  if (error) return []
   return data || []
 }
 
-export async function deleteBot(id: string): Promise<void> {
-  const { error } = await supabase
+export async function findBotByToken(token: string): Promise<Bot | null> {
+  const { data, error } = await supabase
     .from('bb_bots')
-    .delete()
-    .eq('id', id)
+    .select('*')
+    .eq('token', token)
+    .single()
 
-  if (error) throw new Error(`Failed to delete bot: ${error.message}`)
+  if (error) return null
+  return data
 }
