@@ -13,8 +13,11 @@ webhook.post('/:botId', async (c) => {
     console.log(`[webhook] Successfully processed update for bot ${botId}`)
     return c.json({ ok: true })
   } catch (error: any) {
-    console.error(`[webhook] Error processing update for bot ${botId}:`, error?.message || error, error?.stack)
-    return c.json({ ok: false, error: error?.message || 'Webhook processing failed' }, 500)
+    const errorMsg = error?.message || String(error) || 'Unknown error'
+    const errorStack = error?.stack || 'No stack trace'
+    console.error(`[webhook] Error processing update for bot ${botId}:`, errorMsg)
+    console.error(`[webhook] Stack:`, errorStack)
+    return c.json({ ok: false, error: errorMsg, stack: errorStack.split('\n').slice(0, 5) }, 500)
   }
 })
 
