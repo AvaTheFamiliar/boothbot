@@ -2,11 +2,9 @@ import { Bot, Context, session, SessionFlavor } from 'grammy'
 import { supabase } from '../db/client'
 import { createTenant, findTenantByTelegramId } from '../db/repositories/tenant.repository'
 import { createBot, findBotsByTenantId } from '../db/repositories/bot.repository'
-import { setupBotWebhook } from '../bot/manager'
 
 interface SessionData {
-  step: 'idle' | 'awaiting_token' | 'awaiting_event_name' | 'awaiting_event_slug'
-  pendingBotId?: string
+  step: 'idle' | 'awaiting_token'
 }
 
 type MasterContext = Context & SessionFlavor<SessionData>
@@ -30,31 +28,33 @@ export function createMasterBot() {
     const telegramId = ctx.from?.id
     if (!telegramId) return
 
-    // Check if already registered
     const existingTenant = await findTenantByTelegramId(telegramId)
     
     if (existingTenant) {
       const bots = await findBotsByTenantId(existingTenant.id)
       await ctx.reply(
-        `👋 Welcome back!\n\n` +
-        `You have ${bots.length} bot(s) set up.\n\n` +
+        `👋 Welcome back to BoothBot!\n\n` +
+        `You have ${bots.length} booth bot(s) set up.\n\n` +
         `Commands:\n` +
         `/newbot - Create a new booth bot\n` +
         `/mybots - List your bots\n` +
-        `/help - Show all commands`
+        `/help - Show all commands`,
+        { parse_mode: 'HTML' }
       )
     } else {
       await ctx.reply(
-        `🎪 Welcome to BoothBot!\n\n` +
-        `I help you capture leads at crypto conferences with your own Telegram bot.\n\n` +
-        `Here's how it works:\n` +
-        `1. Create a bot with @BotFather\n` +
-        `2. Send me the token\n` +
-        `3. I'll set everything up for you\n` +
-        `4. Create events and get QR codes\n` +
-        `5. Visitors scan → you capture leads!\n\n` +
-        `🎁 Free trial: 7 days or 100 contacts\n\n` +
-        `Ready? Use /newbot to get started!`
+        `🎪 <b>Welcome to BoothBot!</b>\n\n` +
+        `Capture leads at crypto conferences with your own branded Telegram bot.\n\n` +
+        `<b>How it works:</b>\n` +
+        `1️⃣ Create a bot with @BotFather\n` +
+        `2️⃣ Send me the token\n` +
+        `3️⃣ Create events & get QR codes\n` +
+        `4️⃣ Visitors scan → you capture leads!\n\n` +
+        `💰 <b>Pricing:</b>\n` +
+        `• Free: Up to 25 contacts\n` +
+        `• Pro: $100/mo per 1,000 contacts\n\n` +
+        `Ready? Use /newbot to get started!`,
+        { parse_mode: 'HTML' }
       )
     }
   })
@@ -63,13 +63,14 @@ export function createMasterBot() {
   bot.command('newbot', async (ctx) => {
     ctx.session.step = 'awaiting_token'
     await ctx.reply(
-      `🤖 Let's set up your booth bot!\n\n` +
-      `First, create a bot with @BotFather:\n` +
-      `1. Open @BotFather\n` +
-      `2. Send /newbot\n` +
-      `3. Choose a name and username\n` +
-      `4. Copy the token and send it here\n\n` +
-      `Waiting for your bot token...`
+      `🤖 <b>Let's set up your booth bot!</b>\n\n` +
+      `<b>Step 1:</b> Open @BotFather\n` +
+      `<b>Step 2:</b> Send /newbot\n` +
+      `<b>Step 3:</b> Choose a name (e.g., "ETH Denver Booth")\n` +
+      `<b>Step 4:</b> Choose a username (e.g., ethdenver_booth_bot)\n` +
+      `<b>Step 5:</b> Copy the token and send it here\n\n` +
+      `⏳ Waiting for your bot token...`,
+      { parse_mode: 'HTML' }
     )
   })
 
@@ -92,8 +93,26 @@ export function createMasterBot() {
 
     const botList = bots.map((b, i) => `${i + 1}. @${b.username}`).join('\n')
     await ctx.reply(
-      `📋 Your Bots:\n\n${botList}\n\n` +
-      `To manage a bot, message it directly and use /admin`
+      `📋 <b>Your Booth Bots:</b>\n\n${botList}\n\n` +
+      `To manage a bot, message it directly and use /admin`,
+      { parse_mode: 'HTML' }
+    )
+  })
+
+  // /help command
+  bot.command('help', async (ctx) => {
+    await ctx.reply(
+      `📚 <b>BoothBot Commands</b>\n\n` +
+      `/start - Welcome message\n` +
+      `/newbot - Create a new booth bot\n` +
+      `/mybots - List your bots\n` +
+      `/help - Show this message\n\n` +
+      `🌐 <b>Web Dashboard:</b>\n` +
+      `https://boothbot-dashboard.vercel.app\n\n` +
+      `💰 <b>Pricing:</b>\n` +
+      `• Free: Up to 25 contacts\n` +
+      `• Pro: $100/mo per 1,000 contacts`,
+      { parse_mode: 'HTML' }
     )
   })
 
@@ -110,16 +129,17 @@ export function createMasterBot() {
     if (!token.match(/^\d+:[A-Za-z0-9_-]{35}$/)) {
       await ctx.reply(
         '❌ That doesn\'t look like a valid bot token.\n\n' +
-        'Bot tokens look like: 123456789:ABCdefGHIjklMNOpqrsTUVwxyz123456789\n\n' +
-        'Get your token from @BotFather and try again.'
+        'Bot tokens look like:\n<code>123456789:ABCdefGHIjklMNOpqrsTUVwxyz123456789</code>\n\n' +
+        'Get your token from @BotFather and try again.',
+        { parse_mode: 'HTML' }
       )
       return
     }
 
-    await ctx.reply('⏳ Validating your bot token...')
+    await ctx.reply('⏳ Setting up your bot...')
 
     try {
-      // Test the token by calling getMe
+      // Test the token
       const testBot = new Bot(token)
       const botInfo = await testBot.api.getMe()
 
@@ -129,8 +149,8 @@ export function createMasterBot() {
       if (!tenant) {
         tenant = await createTenant({
           telegram_id: telegramId,
-          email: `tg_${telegramId}@boothbot.local`, // placeholder
-          password_hash: '', // no password for TG users
+          email: `tg_${telegramId}@boothbot.local`,
+          password_hash: '',
         })
       }
 
@@ -150,40 +170,29 @@ export function createMasterBot() {
       ctx.session.step = 'idle'
 
       await ctx.reply(
-        `✅ Success! Your booth bot @${botInfo.username} is ready!\n\n` +
-        `🎁 Your 7-day free trial has started.\n\n` +
-        `Next steps:\n` +
-        `1. Open @${botInfo.username}\n` +
-        `2. Send /admin to access admin commands\n` +
-        `3. Create your first event with /newevent\n\n` +
-        `Need help? Send /help here anytime.`
+        `✅ <b>Success!</b>\n\n` +
+        `Your booth bot @${botInfo.username} is ready!\n\n` +
+        `<b>Next steps:</b>\n` +
+        `1️⃣ Open @${botInfo.username}\n` +
+        `2️⃣ Send /admin to access admin commands\n` +
+        `3️⃣ Create your first event with /newevent\n\n` +
+        `🎁 <b>Free tier:</b> Up to 25 contacts included!`,
+        { parse_mode: 'HTML' }
       )
     } catch (error: any) {
       console.error('Bot setup error:', error)
       await ctx.reply(
-        `❌ Couldn't set up that bot.\n\n` +
+        `❌ <b>Setup failed</b>\n\n` +
         `Error: ${error.message || 'Unknown error'}\n\n` +
         `Make sure:\n` +
         `• The token is correct\n` +
-        `• The bot hasn't been deleted\n` +
-        `• You're the owner of the bot\n\n` +
-        `Try again or contact support.`
+        `• You're the owner of the bot\n` +
+        `• The bot hasn't been deleted\n\n` +
+        `Try again with /newbot`,
+        { parse_mode: 'HTML' }
       )
+      ctx.session.step = 'idle'
     }
-  })
-
-  // /help command
-  bot.command('help', async (ctx) => {
-    await ctx.reply(
-      `📚 BoothBot Commands:\n\n` +
-      `/start - Welcome message\n` +
-      `/newbot - Create a new booth bot\n` +
-      `/mybots - List your bots\n` +
-      `/help - Show this message\n\n` +
-      `🌐 Web Dashboard:\n` +
-      `https://boothbot-dashboard.vercel.app\n\n` +
-      `💬 Support: @BoothBotSupport`
-    )
   })
 
   return bot
