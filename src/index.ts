@@ -22,6 +22,10 @@ app.get('/', (c) => {
   })
 })
 
+app.get('/health', (c) => {
+  return c.json({ ok: true })
+})
+
 app.route('/api/auth', authRoutes)
 app.route('/api/bots', botRoutes)
 app.route('/api/events', eventRoutes)
@@ -29,21 +33,25 @@ app.route('/api', visitorRoutes)
 app.route('/api', broadcastRoutes)
 app.route('/webhook', webhookRoutes)
 
-const PORT = process.env.PORT || 3000
+const PORT = Number(process.env.PORT) || 3000
 
 async function start() {
   try {
     await testConnection()
-
-    const server = Bun.serve({
-      port: PORT,
-      fetch: app.fetch
-    })
-
-    return server
+    console.log('Database connected')
   } catch (error) {
-    process.exit(1)
+    console.error('Database connection failed:', error)
+    // Continue anyway for now
   }
+
+  const server = Bun.serve({
+    port: PORT,
+    hostname: '0.0.0.0',
+    fetch: app.fetch
+  })
+
+  console.log(`Server running on http://0.0.0.0:${PORT}`)
+  return server
 }
 
 start()
