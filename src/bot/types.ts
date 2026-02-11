@@ -7,7 +7,9 @@ export enum ConversationState {
   COLLECTING_PHONE = 'collecting_phone',
   COLLECTING_WALLET = 'collecting_wallet',
   COLLECTING_NOTES = 'collecting_notes',
-  CONFIRMING = 'confirming'
+  CONFIRMING = 'confirming',
+  CREATING_EVENT = 'creating_event',
+  CREATING_EVENT_SLUG = 'creating_event_slug'
 }
 
 export interface SessionData {
@@ -20,6 +22,10 @@ export interface SessionData {
     phone?: string
     wallet_address?: string
     notes?: string
+  }
+  eventData?: {
+    name?: string
+    slug?: string
   }
 }
 

@@ -22,6 +22,12 @@ import {
   handleBackToConfirm
 } from './flow/visitor.flow'
 import {
+  handleAdminCommand,
+  handleHelpCommand,
+  handleNewEventCommand,
+  handleEventsCommand,
+  handleEventNameInput,
+  handleEventSlugInput,
   handleStatsCommand,
   handleExportCommand,
   handleBroadcastCommand
@@ -36,6 +42,10 @@ export function createBotInstance(token: string, botId: string): Bot<BotContext>
   bot.use(billingMiddleware())
 
   bot.command('start', handleStartCommand())
+  bot.command('admin', handleAdminCommand())
+  bot.command('help', handleHelpCommand())
+  bot.command('newevent', handleNewEventCommand())
+  bot.command('events', handleEventsCommand())
   bot.command('stats', handleStatsCommand())
   bot.command('export', handleExportCommand())
   bot.command('broadcast', handleBroadcastCommand())
@@ -59,6 +69,10 @@ export function createBotInstance(token: string, botId: string): Bot<BotContext>
         return handleWalletInput()(ctx)
       case ConversationState.COLLECTING_NOTES:
         return handleNotesInput()(ctx)
+      case ConversationState.CREATING_EVENT:
+        return handleEventNameInput()(ctx)
+      case ConversationState.CREATING_EVENT_SLUG:
+        return handleEventSlugInput()(ctx)
       default:
         await next()
     }

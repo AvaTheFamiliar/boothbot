@@ -4,9 +4,12 @@ import type { Event, EventStats } from '../schema'
 export interface CreateEventData {
   bot_id: string
   name: string
+  slug?: string
   description?: string
   start_date?: string
   end_date?: string
+  swag_image_url?: string
+  config?: Record<string, any>
 }
 
 export interface UpdateEventData {
