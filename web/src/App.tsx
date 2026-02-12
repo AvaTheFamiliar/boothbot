@@ -372,7 +372,7 @@ function DashboardPage({ user, onLogout }: { user: any; onLogout: () => void }) 
     setLoading(true)
     const [botsResult, allBotsResult, statsResult] = await Promise.all([
       api.getBots(),
-      fetch(`${import.meta.env.VITE_API_URL || 'https://boothbot-api-production.up.railway.app'}/api/bots?includeArchived=true`, {
+      fetch(`https://boothbot-api-production.up.railway.app/api/bots?includeArchived=true`, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       }).then(r => r.json()),
       api.getStats()
