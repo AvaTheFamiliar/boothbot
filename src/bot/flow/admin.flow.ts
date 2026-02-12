@@ -1,7 +1,7 @@
 import type { BotContext } from '../types'
 import { ConversationState } from '../types'
 import { getEventStats, createEvent, findEventsByBot } from '../../db/repositories/event.repository'
-import { exportVisitorsCSV, findVisitorsByEvent } from '../../db/repositories/visitor.repository'
+import { exportVisitorsCSV, exportAllVisitorsCSV, findVisitorsByBot, findVisitorsByEvent, getVisitorCountByBot } from '../../db/repositories/visitor.repository'
 import { createBroadcast } from '../../db/repositories/broadcast.repository'
 import { findBotById } from '../../db/repositories/bot.repository'
 import { InputFile } from 'grammy'
@@ -16,12 +16,13 @@ export function handleAdminCommand() {
 
     await ctx.reply(
       `🔧 <b>Admin Commands</b>\n\n` +
+      `/stats - View lead statistics\n` +
+      `/export - Export all leads to CSV\n` +
+      `/broadcast &lt;message&gt; - Message all leads\n\n` +
+      `<b>Events (optional):</b>\n` +
       `/newevent - Create a new event\n` +
-      `/events - List your events\n` +
-      `/stats - View event statistics\n` +
-      `/export - Export visitors to CSV\n` +
-      `/broadcast &lt;message&gt; - Message all visitors\n\n` +
-      `💡 <i>Use /newevent to create your first event and get a QR code!</i>`,
+      `/events - List your events\n\n` +
+      `💡 <i>Events are optional! Leads are captured even without events.</i>`,
       { parse_mode: 'HTML' }
     )
   }
@@ -31,16 +32,16 @@ export function handleHelpCommand() {
   return async (ctx: BotContext) => {
     const isAdminUser = await isAdmin(ctx)
     
-    let helpText = `📚 <b>BoothBot Help</b>\n\n`
+    let helpText = `📚 <b>Moongate Booths Help</b>\n\n`
     
     if (isAdminUser) {
       helpText += `<b>Admin Commands:</b>\n` +
-        `/admin - Show admin commands\n` +
-        `/newevent - Create a new event\n` +
-        `/events - List your events\n` +
-        `/stats - View event statistics\n` +
-        `/export - Export visitors to CSV\n` +
-        `/broadcast - Message all visitors\n\n`
+        `/admin - Show admin panel\n` +
+        `/stats - View lead statistics\n` +
+        `/export - Export leads to CSV\n` +
+        `/broadcast - Message all leads\n` +
+        `/newevent - Create event (optional)\n` +
+        `/events - List events\n\n`
     }
     
     helpText += `<b>Visitor Commands:</b>\n` +
@@ -65,6 +66,7 @@ export function handleNewEventCommand() {
     
     await ctx.reply(
       `🎪 <b>Create New Event</b>\n\n` +
+      `Events help you track which leads came from where.\n\n` +
       `What's the name of your event?\n\n` +
       `<i>Example: ETH Denver 2026</i>`,
       { parse_mode: 'HTML' }
@@ -114,7 +116,7 @@ export function handleEventNameInput() {
             `<b>Name:</b> ${name}\n` +
             `<b>Slug:</b> ${slug}\n\n` +
             `<b>Registration Link:</b>\n<code>${eventLink}</code>\n\n` +
-            `Share this QR code or link at your booth!`,
+            `Leads who scan this will be tagged with source: <code>event:${slug}</code>`,
           parse_mode: 'HTML'
         }
       )
@@ -128,7 +130,6 @@ export function handleEventNameInput() {
 // Keep for backwards compatibility but no longer used in flow
 export function handleEventSlugInput() {
   return async (ctx: BotContext) => {
-    // Redirect to name input handler since we auto-generate slugs now
     return handleEventNameInput()(ctx)
   }
 }
@@ -145,8 +146,9 @@ export function handleEventsCommand() {
 
       if (!events || events.length === 0) {
         await ctx.reply(
-          `📭 <b>No events yet!</b>\n\n` +
-          `Use /newevent to create your first event.`,
+          `📭 <b>No events yet</b>\n\n` +
+          `Events are optional — leads are captured with or without them.\n\n` +
+          `Use /newevent to create one if you want to track sources.`,
           { parse_mode: 'HTML' }
         )
         return
@@ -170,36 +172,39 @@ export function handleEventsCommand() {
 
 export function handleStatsCommand() {
   return async (ctx: BotContext) => {
-    if (!ctx.eventId) {
-      await ctx.reply('Please use this command within an event context.')
-      return
-    }
-
     if (!(await isAdmin(ctx))) {
-      await ctx.reply('This command is only available to admins.')
+      await ctx.reply('⛔ This command is only available to bot admins.')
       return
     }
 
     try {
-      const stats = await getEventStats(ctx.eventId)
+      // Get bot-level stats (all leads regardless of event)
+      const totalLeads = await getVisitorCountByBot(ctx.botId)
+      const events = await findEventsByBot(ctx.botId)
+      
+      let message = `📊 <b>Lead Statistics</b>\n\n` +
+        `<b>Total Leads:</b> ${totalLeads}\n` +
+        `<b>Events:</b> ${events.length}\n`
 
-      if (!stats) {
-        await ctx.reply('No stats available for this event.')
-        return
+      // If there are events, show per-event breakdown
+      if (events.length > 0) {
+        message += `\n<b>By Event:</b>\n`
+        for (const event of events) {
+          const stats = await getEventStats(event.id)
+          message += `• ${event.name}: ${stats?.total_visitors || 0} leads\n`
+        }
       }
 
-      const message = `
-📊 Event Statistics
+      // Show direct (non-event) leads
+      const visitors = await findVisitorsByBot(ctx.botId)
+      const directLeads = visitors.filter(v => !v.event_id || v.source === 'direct').length
+      if (directLeads > 0) {
+        message += `• Direct (no event): ${directLeads} leads\n`
+      }
 
-Event: ${stats.event_name}
-Total Visitors: ${stats.total_visitors}
-Today: ${stats.visitors_today}
-This Week: ${stats.visitors_this_week}
-Last Registration: ${stats.last_visitor_at ? new Date(stats.last_visitor_at).toLocaleString() : 'Never'}
-      `.trim()
-
-      await ctx.reply(message)
+      await ctx.reply(message, { parse_mode: 'HTML' })
     } catch (error) {
+      console.error('Stats error:', error)
       await ctx.reply('Failed to fetch statistics.')
     }
   }
@@ -207,70 +212,89 @@ Last Registration: ${stats.last_visitor_at ? new Date(stats.last_visitor_at).toL
 
 export function handleExportCommand() {
   return async (ctx: BotContext) => {
-    if (!ctx.eventId) {
-      await ctx.reply('Please use this command within an event context.')
-      return
-    }
-
     if (!(await isAdmin(ctx))) {
-      await ctx.reply('This command is only available to admins.')
+      await ctx.reply('⛔ This command is only available to bot admins.')
       return
     }
 
     try {
-      const csv = await exportVisitorsCSV(ctx.eventId)
-      const fileName = `visitors_${ctx.eventId}_${Date.now()}.csv`
+      // Export ALL leads for this bot (not just one event)
+      const csv = await exportAllVisitorsCSV(ctx.botId)
+      const fileName = `leads_${ctx.botId.slice(0, 8)}_${Date.now()}.csv`
 
       await ctx.replyWithDocument(
         new InputFile(Buffer.from(csv), fileName),
-        { caption: 'Here is your visitor export' }
+        { caption: '📥 <b>All Leads Exported</b>\n\nThis includes leads from all sources (direct + events).', parse_mode: 'HTML' }
       )
     } catch (error) {
-      await ctx.reply('Failed to export visitors.')
+      console.error('Export error:', error)
+      await ctx.reply('Failed to export leads.')
     }
   }
 }
 
 export function handleBroadcastCommand() {
   return async (ctx: BotContext) => {
-    if (!ctx.eventId) {
-      await ctx.reply('Please use this command within an event context.')
-      return
-    }
-
     if (!(await isAdmin(ctx))) {
-      await ctx.reply('This command is only available to admins.')
+      await ctx.reply('⛔ This command is only available to bot admins.')
       return
     }
 
     const message = ctx.message?.text?.replace('/broadcast', '').trim()
 
     if (!message) {
-      await ctx.reply('Usage: /broadcast <message>\n\nThis will send a message to all registered visitors.')
+      await ctx.reply(
+        `📢 <b>Broadcast Message</b>\n\n` +
+        `Usage: /broadcast &lt;message&gt;\n\n` +
+        `This will send a message to ALL registered leads.`,
+        { parse_mode: 'HTML' }
+      )
       return
     }
 
     try {
-      const visitors = await findVisitorsByEvent(ctx.eventId)
+      // Get ALL visitors for this bot (not just one event)
+      const visitors = await findVisitorsByBot(ctx.botId)
+      
+      if (visitors.length === 0) {
+        await ctx.reply('No leads to broadcast to yet.')
+        return
+      }
+
       let sentCount = 0
+      let failedCount = 0
 
       for (const visitor of visitors) {
         try {
           await ctx.api.sendMessage(visitor.telegram_id, message)
           sentCount++
         } catch {
+          failedCount++
           continue
         }
       }
 
-      await createBroadcast({
-        event_id: ctx.eventId,
-        message,
-        sent_count: sentCount
-      })
+      // Log broadcast (use bot_id context, event_id is optional)
+      try {
+        await createBroadcast({
+          event_id: ctx.eventId || ctx.botId, // Fallback to bot_id for logging
+          message,
+          sent_count: sentCount
+        })
+      } catch (e) {
+        // Non-fatal, just log
+        console.error('Failed to log broadcast:', e)
+      }
 
-      await ctx.reply(`Broadcast sent to ${sentCount} out of ${visitors.length} visitors.`)
+      await ctx.reply(
+        `📢 <b>Broadcast Complete</b>\n\n` +
+        `✅ Sent: ${sentCount}\n` +
+        `❌ Failed: ${failedCount}\n` +
+        `📊 Total: ${visitors.length}`,
+        { parse_mode: 'HTML' }
+      )
     } catch (error) {
+      console.error('Broadcast error:', error)
       await ctx.reply('Failed to send broadcast.')
     }
   }

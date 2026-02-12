@@ -1,7 +1,7 @@
 import type { BotContext } from './types'
 import { getSession, setSession } from './session'
 import { checkBillingLimits, getBillingMessage } from '../lib/billing'
-import { findEventById, findEventBySlug, findDefaultEvent } from '../db/repositories/event.repository'
+import { findEventById, findEventBySlug } from '../db/repositories/event.repository'
 import { findBotById } from '../db/repositories/bot.repository'
 
 export function sessionMiddleware(botId: string) {
@@ -18,14 +18,17 @@ export function sessionMiddleware(botId: string) {
   }
 }
 
+// Event context is OPTIONAL - only set if user comes via event deep link
 export function eventContextMiddleware() {
   return async (ctx: BotContext, next: () => Promise<void>) => {
     const messageText = ctx.message?.text || ''
     
+    // Only try to resolve event context if there's an explicit event parameter
     if (messageText.startsWith('/start ')) {
       const param = messageText.replace('/start ', '').trim().split(' ')[0]
       
-      if (param) {
+      // Skip login_ parameters (those are for web auth, not events)
+      if (param && !param.startsWith('login_')) {
         let event = null
         
         // Check if it's a legacy event_UUID format
@@ -44,19 +47,16 @@ export function eventContextMiddleware() {
         
         if (event) {
           ctx.session.eventId = event.id
+          ctx.session.eventSlug = event.slug || undefined
+          ctx.session.source = `event:${event.slug || event.id}`
           ctx.eventId = event.id
         }
       }
-    } else if (messageText === '/start') {
-      // No parameter - use default event for this bot
-      const defaultEvent = await findDefaultEvent(ctx.botId)
-      if (defaultEvent) {
-        ctx.session.eventId = defaultEvent.id
-        ctx.eventId = defaultEvent.id
-      }
     } else if (ctx.session.eventId) {
+      // Restore event context from session if previously set
       ctx.eventId = ctx.session.eventId
     }
+    // If no event parameter and no session event, that's fine - events are optional!
 
     await next()
   }
