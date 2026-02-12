@@ -141,7 +141,7 @@ function LoginPage({ onLogin }: { onLogin: (email: string, password: string) => 
         
         <div style={{ marginTop: 32, paddingTop: 24, borderTop: `1px solid ${colors.border}`, textAlign: 'center' }}>
           <p style={{ color: colors.textMuted, fontSize: 12 }}>Or create via Telegram</p>
-          <a href="https://t.me/MoongateBoothBot" target="_blank" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, marginTop: 12, padding: '10px 20px', backgroundColor: '#2AABEE', color: 'white', borderRadius: 8, textDecoration: 'none', fontSize: 14 }}>
+          <a href="https://t.me/MoongateEventBot" target="_blank" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, marginTop: 12, padding: '10px 20px', backgroundColor: '#2AABEE', color: 'white', borderRadius: 8, textDecoration: 'none', fontSize: 14 }}>
             <span>💬</span> Open in Telegram
           </a>
         </div>
@@ -263,7 +263,7 @@ function DashboardPage({ user, onLogout }: { user: any, onLogout: () => void }) 
           {loading ? (
             <p style={{ color: colors.textMuted }}>Loading...</p>
           ) : bots.length === 0 ? (
-            <p style={{ color: colors.textMuted }}>No bots yet. Add one above or use <a href="https://t.me/MoongateBoothBot" style={{ color: colors.primary }}>@MoongateBoothBot</a> on Telegram.</p>
+            <p style={{ color: colors.textMuted }}>No bots yet. Add one above or use <a href="https://t.me/MoongateEventBot" style={{ color: colors.primary }}>@MoongateEventBot</a> on Telegram.</p>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               {bots.map(bot => (

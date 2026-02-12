@@ -22,7 +22,7 @@ auth.post('/register', async (c) => {
     }
 
     const passwordHash = await hashPassword(password)
-    const tenant = await createTenant(email, passwordHash)
+    const tenant = await createTenant({ email, password_hash: passwordHash })
 
     const token = generateJWT({
       tenantId: tenant.id,
