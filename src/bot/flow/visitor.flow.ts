@@ -271,8 +271,9 @@ export function handleConfirm() {
 
       await ctx.reply(
         `🎉 <b>You're all set!</b>\n\n` +
-        `Thank you for registering. We'll send you updates and announcements right here.\n\n` +
-        `Enjoy the event! 🚀\n\n` +
+        `Thank you for stopping by! We'll be in touch with updates and exclusive content.\n\n` +
+        `🎁 <b>Don't forget to grab your merch at our booth!</b>\n\n` +
+        `See you around! 👋\n\n` +
         `<i>Powered by Moongate 🌙</i>`,
         { parse_mode: 'HTML' }
       )
