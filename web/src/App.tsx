@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { BrowserRouter, Routes, Route, Link, useNavigate } from 'react-router-dom'
 import { api } from './lib/api'
 
@@ -13,24 +13,6 @@ const colors = {
   textMuted: '#a0a0a0',
   border: '#2a2a2a',
   telegram: '#2AABEE',
-}
-
-const BOT_USERNAME = 'MoongateEventBot'
-
-declare global {
-  interface Window {
-    onTelegramAuth?: (user: TelegramUser) => void
-  }
-}
-
-interface TelegramUser {
-  id: number
-  first_name: string
-  last_name?: string
-  username?: string
-  photo_url?: string
-  auth_date: number
-  hash: string
 }
 
 function useLocalAuth() {
@@ -51,16 +33,11 @@ function useLocalAuth() {
     return { success: false, error: result.error }
   }
 
-  const loginWithTelegram = async (tgUser: TelegramUser) => {
-    const result = await api.loginWithTelegram(tgUser)
-    if (result.data) {
-      localStorage.setItem('token', result.data.token)
-      localStorage.setItem('user', JSON.stringify(result.data.tenant))
-      setToken(result.data.token)
-      setUser(result.data.tenant)
-      return { success: true }
-    }
-    return { success: false, error: result.error }
+  const loginWithToken = (data: { token: string; tenant: any }) => {
+    localStorage.setItem('token', data.token)
+    localStorage.setItem('user', JSON.stringify(data.tenant))
+    setToken(data.token)
+    setUser(data.tenant)
   }
 
   const register = async (email: string, password: string) => {
@@ -82,7 +59,7 @@ function useLocalAuth() {
     setUser(null)
   }
 
-  return { token, user, login, loginWithTelegram, register, logout }
+  return { token, user, login, loginWithToken, register, logout }
 }
 
 const inputStyle: React.CSSProperties = {
@@ -108,39 +85,184 @@ const buttonStyle: React.CSSProperties = {
   width: '100%',
 }
 
-function TelegramLoginButton({ onAuth }: { onAuth: (user: TelegramUser) => void }) {
-  useEffect(() => {
-    window.onTelegramAuth = onAuth
-    
-    const script = document.createElement('script')
-    script.src = 'https://telegram.org/js/telegram-widget.js?22'
-    script.setAttribute('data-telegram-login', BOT_USERNAME)
-    script.setAttribute('data-size', 'large')
-    script.setAttribute('data-radius', '8')
-    script.setAttribute('data-onauth', 'onTelegramAuth(user)')
-    script.setAttribute('data-request-access', 'write')
-    script.async = true
-    
-    const container = document.getElementById('telegram-login-container')
-    if (container) {
-      container.innerHTML = ''
-      container.appendChild(script)
-    }
-    
-    return () => {
-      delete window.onTelegramAuth
-    }
-  }, [onAuth])
+// Telegram Deep Link Login Button
+function TelegramLoginButton({ onSuccess }: { onSuccess: (data: { token: string; tenant: any }) => void }) {
+  const [status, setStatus] = useState<'idle' | 'waiting' | 'error'>('idle')
+  const [error, setError] = useState('')
+  const pollingRef = useRef<NodeJS.Timeout | null>(null)
+  const codeRef = useRef<string | null>(null)
 
-  return <div id="telegram-login-container" style={{ display: 'flex', justifyContent: 'center' }} />
+  const startLogin = async () => {
+    setStatus('waiting')
+    setError('')
+    
+    try {
+      const result = await api.initTelegramLogin()
+      
+      if (!result.data) {
+        setError(result.error || 'Failed to initialize login')
+        setStatus('error')
+        return
+      }
+      
+      const { code, deepLink } = result.data
+      codeRef.current = code
+      
+      // Open Telegram deep link
+      window.open(deepLink, '_blank')
+      
+      // Start polling for approval
+      let attempts = 0
+      const maxAttempts = 60 // 5 minutes at 5 second intervals
+      
+      pollingRef.current = setInterval(async () => {
+        attempts++
+        
+        if (attempts > maxAttempts) {
+          clearInterval(pollingRef.current!)
+          setError('Login request expired')
+          setStatus('error')
+          return
+        }
+        
+        const checkResult = await api.checkTelegramLogin(code)
+        
+        if (checkResult.status === 'approved' && checkResult.data) {
+          clearInterval(pollingRef.current!)
+          onSuccess(checkResult.data)
+        } else if (checkResult.status === 'denied') {
+          clearInterval(pollingRef.current!)
+          setError('Login was denied')
+          setStatus('error')
+        } else if (checkResult.status === 'expired') {
+          clearInterval(pollingRef.current!)
+          setError('Login request expired')
+          setStatus('error')
+        }
+        // If pending, keep polling
+      }, 2000)
+      
+    } catch (err) {
+      setError('Failed to start login')
+      setStatus('error')
+    }
+  }
+
+  const cancelLogin = () => {
+    if (pollingRef.current) {
+      clearInterval(pollingRef.current)
+    }
+    setStatus('idle')
+    setError('')
+  }
+
+  useEffect(() => {
+    return () => {
+      if (pollingRef.current) {
+        clearInterval(pollingRef.current)
+      }
+    }
+  }, [])
+
+  if (status === 'waiting') {
+    return (
+      <div style={{ textAlign: 'center' }}>
+        <div style={{ 
+          padding: '16px 24px', 
+          backgroundColor: colors.telegram + '15', 
+          borderRadius: 8,
+          border: `1px solid ${colors.telegram}30`,
+          marginBottom: 12
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginBottom: 8 }}>
+            <div className="spinner" style={{
+              width: 16,
+              height: 16,
+              border: `2px solid ${colors.telegram}40`,
+              borderTopColor: colors.telegram,
+              borderRadius: '50%',
+              animation: 'spin 1s linear infinite'
+            }} />
+            <span style={{ color: colors.telegram, fontWeight: 500 }}>Waiting for Telegram...</span>
+          </div>
+          <p style={{ color: colors.textMuted, fontSize: 13, margin: 0 }}>
+            Approve the login request in Telegram
+          </p>
+        </div>
+        <button 
+          onClick={cancelLogin}
+          style={{ 
+            padding: '8px 16px', 
+            backgroundColor: 'transparent', 
+            border: `1px solid ${colors.border}`, 
+            borderRadius: 6, 
+            color: colors.textMuted, 
+            cursor: 'pointer', 
+            fontSize: 13 
+          }}
+        >
+          Cancel
+        </button>
+        <style>{`
+          @keyframes spin {
+            to { transform: rotate(360deg); }
+          }
+        `}</style>
+      </div>
+    )
+  }
+
+  return (
+    <div>
+      {error && (
+        <div style={{ 
+          padding: 12, 
+          backgroundColor: '#3f1f1f', 
+          color: '#ff6b6b', 
+          borderRadius: 8, 
+          marginBottom: 12, 
+          fontSize: 14,
+          textAlign: 'center'
+        }}>
+          {error}
+        </div>
+      )}
+      <button
+        onClick={startLogin}
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: 10,
+          width: '100%',
+          padding: '14px 24px',
+          backgroundColor: colors.telegram,
+          color: 'white',
+          border: 'none',
+          borderRadius: 8,
+          fontSize: 15,
+          fontWeight: 600,
+          cursor: 'pointer',
+        }}
+      >
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.562 8.161c-.18 1.897-.962 6.502-1.359 8.627-.168.9-.5 1.201-.82 1.23-.697.064-1.226-.461-1.901-.903-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.139-5.062 3.345-.479.329-.913.489-1.302.481-.428-.009-1.252-.242-1.865-.442-.752-.244-1.349-.374-1.297-.789.027-.216.324-.437.893-.663 3.498-1.524 5.831-2.529 6.998-3.015 3.333-1.386 4.025-1.627 4.477-1.635.099-.002.321.023.465.141.121.099.154.232.17.325.015.094.034.31.019.478z"/>
+        </svg>
+        Continue with Telegram
+      </button>
+      <p style={{ color: colors.textMuted, fontSize: 12, textAlign: 'center', marginTop: 8 }}>
+        Opens Telegram app for secure login
+      </p>
+    </div>
+  )
 }
 
 function LoginPage({ 
-  onLogin, 
-  onTelegramLogin 
+  onLogin,
+  onLoginWithToken
 }: { 
   onLogin: (email: string, password: string) => Promise<{ success: boolean; error?: string }>
-  onTelegramLogin: (user: TelegramUser) => Promise<{ success: boolean; error?: string }>
+  onLoginWithToken: (data: { token: string; tenant: any }) => void
 }) {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -161,17 +283,10 @@ function LoginPage({
     }
   }
 
-  const handleTelegramAuth = useCallback(async (user: TelegramUser) => {
-    setLoading(true)
-    setError('')
-    const result = await onTelegramLogin(user)
-    setLoading(false)
-    if (result.success) {
-      navigate('/')
-    } else {
-      setError(result.error || 'Telegram login failed')
-    }
-  }, [onTelegramLogin, navigate])
+  const handleTelegramSuccess = (data: { token: string; tenant: any }) => {
+    onLoginWithToken(data)
+    navigate('/')
+  }
 
   return (
     <div style={{ minHeight: '100vh', backgroundColor: colors.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
@@ -187,7 +302,7 @@ function LoginPage({
 
         {/* Telegram Login - Primary */}
         <div style={{ marginBottom: 24 }}>
-          <TelegramLoginButton onAuth={handleTelegramAuth} />
+          <TelegramLoginButton onSuccess={handleTelegramSuccess} />
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 24 }}>
@@ -234,10 +349,10 @@ function LoginPage({
 
 function RegisterPage({ 
   onRegister,
-  onTelegramLogin
+  onLoginWithToken
 }: { 
   onRegister: (email: string, password: string) => Promise<{ success: boolean; error?: string }>
-  onTelegramLogin: (user: TelegramUser) => Promise<{ success: boolean; error?: string }>
+  onLoginWithToken: (data: { token: string; tenant: any }) => void
 }) {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -258,17 +373,10 @@ function RegisterPage({
     }
   }
 
-  const handleTelegramAuth = useCallback(async (user: TelegramUser) => {
-    setLoading(true)
-    setError('')
-    const result = await onTelegramLogin(user)
-    setLoading(false)
-    if (result.success) {
-      navigate('/')
-    } else {
-      setError(result.error || 'Telegram login failed')
-    }
-  }, [onTelegramLogin, navigate])
+  const handleTelegramSuccess = (data: { token: string; tenant: any }) => {
+    onLoginWithToken(data)
+    navigate('/')
+  }
 
   return (
     <div style={{ minHeight: '100vh', backgroundColor: colors.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
@@ -284,7 +392,7 @@ function RegisterPage({
 
         {/* Telegram Login - Primary */}
         <div style={{ marginBottom: 24 }}>
-          <TelegramLoginButton onAuth={handleTelegramAuth} />
+          <TelegramLoginButton onSuccess={handleTelegramSuccess} />
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 24 }}>
@@ -424,13 +532,13 @@ function DashboardPage({ user, onLogout }: { user: any, onLogout: () => void }) 
 }
 
 function AppContent() {
-  const { token, user, login, loginWithTelegram, register, logout } = useLocalAuth()
+  const { token, user, login, loginWithToken, register, logout } = useLocalAuth()
 
   if (!token) {
     return (
       <Routes>
-        <Route path="/register" element={<RegisterPage onRegister={register} onTelegramLogin={loginWithTelegram} />} />
-        <Route path="*" element={<LoginPage onLogin={login} onTelegramLogin={loginWithTelegram} />} />
+        <Route path="/register" element={<RegisterPage onRegister={register} onLoginWithToken={loginWithToken} />} />
+        <Route path="*" element={<LoginPage onLogin={login} onLoginWithToken={loginWithToken} />} />
       </Routes>
     )
   }

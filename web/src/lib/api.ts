@@ -3,6 +3,7 @@ const API_URL = 'https://boothbot-api-production.up.railway.app'
 export interface ApiResponse<T = any> {
   data?: T
   error?: string
+  status?: string
 }
 
 async function request<T>(endpoint: string, options: RequestInit = {}): Promise<ApiResponse<T>> {
@@ -23,10 +24,10 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
     const data = await response.json()
 
     if (!response.ok) {
-      return { error: data.error || 'Request failed' }
+      return { error: data.error || 'Request failed', status: data.status }
     }
 
-    return { data }
+    return { data: data.data, status: data.status }
   } catch (error) {
     return { error: 'Network error' }
   }
@@ -55,11 +56,22 @@ export const api = {
       body: JSON.stringify({ email, password }),
     }),
 
+  // Legacy widget auth (keeping for compatibility)
   loginWithTelegram: (data: TelegramAuthData) =>
     request<{ token: string; tenant: any }>('/api/auth/telegram', {
       method: 'POST',
       body: JSON.stringify(data),
     }),
+
+  // Deep link auth - step 1: init
+  initTelegramLogin: () =>
+    request<{ code: string; deepLink: string; expiresIn: number }>('/api/auth/telegram-link/init', {
+      method: 'POST',
+    }),
+
+  // Deep link auth - step 2: check status
+  checkTelegramLogin: (code: string) =>
+    request<{ token: string; tenant: any } | null>(`/api/auth/telegram-link/check?code=${code}`),
 
   getBots: () => request<any[]>('/api/bots'),
   

@@ -1,4 +1,4 @@
-import { Bot, Context, session, SessionFlavor } from 'grammy'
+import { Bot, Context, session, SessionFlavor, InlineKeyboard } from 'grammy'
 import { supabase } from '../db/client'
 import { createTenant, findTenantByTelegramId } from '../db/repositories/tenant.repository'
 import { createBot, findBotsByTenantId } from '../db/repositories/bot.repository'
@@ -23,11 +23,21 @@ export function createMasterBot() {
     initial: (): SessionData => ({ step: 'idle' })
   }))
 
-  // /start command
+  // /start command - handles both normal start and login deep links
   bot.command('start', async (ctx) => {
     const telegramId = ctx.from?.id
     if (!telegramId) return
 
+    const payload = ctx.match?.toString().trim()
+    
+    // Handle login deep link: /start login_<code>
+    if (payload && payload.startsWith('login_')) {
+      const code = payload.replace('login_', '')
+      await handleLoginRequest(ctx, code, telegramId)
+      return
+    }
+
+    // Normal /start flow
     const existingTenant = await findTenantByTelegramId(telegramId)
     
     if (existingTenant) {
@@ -56,6 +66,88 @@ export function createMasterBot() {
         `Ready? Use /newbot to get started!`,
         { parse_mode: 'HTML' }
       )
+    }
+  })
+
+  // Handle login confirmation/denial callbacks
+  bot.callbackQuery(/^login_(approve|deny)_(.+)$/, async (ctx) => {
+    const match = ctx.callbackQuery.data.match(/^login_(approve|deny)_(.+)$/)
+    if (!match) return
+    
+    const action = match[1]
+    const code = match[2]
+    const telegramId = ctx.from?.id
+    
+    if (!telegramId) {
+      await ctx.answerCallbackQuery({ text: 'Error: Could not identify user' })
+      return
+    }
+    
+    try {
+      // Get auth code
+      const { data: authCode, error } = await supabase
+        .from('bb_auth_codes')
+        .select('*')
+        .eq('code', code)
+        .single()
+      
+      if (error || !authCode) {
+        await ctx.answerCallbackQuery({ text: 'This login request has expired' })
+        await ctx.editMessageText('❌ This login request has expired or was already used.')
+        return
+      }
+      
+      if (new Date(authCode.expires_at) < new Date()) {
+        await ctx.answerCallbackQuery({ text: 'This login request has expired' })
+        await ctx.editMessageText('❌ This login request has expired.')
+        return
+      }
+      
+      if (action === 'approve') {
+        // Find or create tenant
+        let tenant = await findTenantByTelegramId(telegramId)
+        if (!tenant) {
+          tenant = await createTenant({
+            telegram_id: telegramId,
+            first_name: ctx.from.first_name,
+            last_name: ctx.from.last_name,
+            username: ctx.from.username,
+          })
+        }
+        
+        // Update auth code to approved
+        await supabase
+          .from('bb_auth_codes')
+          .update({ 
+            status: 'approved', 
+            telegram_id: telegramId 
+          })
+          .eq('code', code)
+        
+        await ctx.answerCallbackQuery({ text: '✅ Login approved!' })
+        await ctx.editMessageText(
+          `✅ <b>Login Approved</b>\n\n` +
+          `You're now logged into Moongate Booths dashboard.\n\n` +
+          `You can close this chat and return to the web app.`,
+          { parse_mode: 'HTML' }
+        )
+      } else {
+        // Deny login
+        await supabase
+          .from('bb_auth_codes')
+          .update({ status: 'denied' })
+          .eq('code', code)
+        
+        await ctx.answerCallbackQuery({ text: 'Login denied' })
+        await ctx.editMessageText(
+          `❌ <b>Login Denied</b>\n\n` +
+          `The login request was denied. If you didn't initiate this, your account is safe.`,
+          { parse_mode: 'HTML' }
+        )
+      }
+    } catch (err) {
+      console.error('Login callback error:', err)
+      await ctx.answerCallbackQuery({ text: 'An error occurred' })
     }
   })
 
@@ -109,7 +201,7 @@ export function createMasterBot() {
       `/bug - Report a bug\n` +
       `/help - Show this message\n\n` +
       `🌐 <b>Web Dashboard:</b>\n` +
-      `https://boothbot-web.vercel.app\n\n` +
+      `https://boothbot-dashboard.vercel.app\n\n` +
       `💰 <b>Pricing:</b>\n` +
       `• Free: First 25 leads\n` +
       `• Pro: $100/mo per 1,000 leads`,
@@ -122,10 +214,8 @@ export function createMasterBot() {
     const bugText = ctx.message?.text?.replace('/bug', '').trim()
     
     if (bugText && bugText.length > 5) {
-      // Inline bug report
       await submitBugReport(ctx, bugText)
     } else {
-      // Ask for bug report
       ctx.session.step = 'awaiting_bug_report'
       await ctx.reply(
         `🐛 <b>Report a Bug</b>\n\n` +
@@ -198,7 +288,6 @@ export function createMasterBot() {
 
       // Configure bot profile and descriptions
       try {
-        // Set the "What can this bot do?" description (shown before /start)
         const description = `🌙 Official Event Registration Bot
 
 Scan a QR code at our booth to:
@@ -209,13 +298,10 @@ Scan a QR code at our booth to:
 Powered by Moongate Booths`
 
         await testBot.api.raw.setMyDescription({ description })
-
-        // Set short description (shown in search/share)
         await testBot.api.raw.setMyShortDescription({ 
           short_description: `Event registration & lead capture. Powered by Moongate 🌙`
         })
 
-        // Set available commands (default for all users)
         await testBot.api.raw.setMyCommands({
           commands: [
             { command: 'start', description: 'Start or register for an event' },
@@ -223,7 +309,6 @@ Powered by Moongate Booths`
           ]
         })
 
-        // Set admin commands (only visible to bot owner)
         await testBot.api.raw.setMyCommands({
           commands: [
             { command: 'start', description: 'Start or register for an event' },
@@ -241,7 +326,6 @@ Powered by Moongate Booths`
         console.log(`[masterbot] Configured bot @${botInfo.username} with descriptions and commands`)
       } catch (configError) {
         console.error('[masterbot] Failed to configure bot profile:', configError)
-        // Non-fatal, continue anyway
       }
 
       ctx.session.step = 'idle'
@@ -277,6 +361,59 @@ Powered by Moongate Booths`
   })
 
   return bot
+}
+
+// Handle login request from deep link
+async function handleLoginRequest(ctx: MasterContext, code: string, telegramId: number): Promise<void> {
+  try {
+    // Validate the auth code exists and is pending
+    const { data: authCode, error } = await supabase
+      .from('bb_auth_codes')
+      .select('*')
+      .eq('code', code)
+      .eq('status', 'pending')
+      .single()
+    
+    if (error || !authCode) {
+      await ctx.reply(
+        `❌ <b>Invalid Login Request</b>\n\n` +
+        `This login link is invalid or has expired.\n\n` +
+        `Please try again from the web dashboard.`,
+        { parse_mode: 'HTML' }
+      )
+      return
+    }
+    
+    // Check if expired
+    if (new Date(authCode.expires_at) < new Date()) {
+      await ctx.reply(
+        `❌ <b>Login Request Expired</b>\n\n` +
+        `This login link has expired.\n\n` +
+        `Please try again from the web dashboard.`,
+        { parse_mode: 'HTML' }
+      )
+      return
+    }
+    
+    // Show confirmation prompt with inline keyboard
+    const keyboard = new InlineKeyboard()
+      .text('✅ Approve Login', `login_approve_${code}`)
+      .text('❌ Deny', `login_deny_${code}`)
+    
+    await ctx.reply(
+      `🔐 <b>Login Request</b>\n\n` +
+      `Someone is trying to log into <b>Moongate Booths</b> dashboard with your Telegram account.\n\n` +
+      `If this was you, tap <b>Approve</b> below.\n` +
+      `If not, tap <b>Deny</b> to block this request.`,
+      { 
+        parse_mode: 'HTML',
+        reply_markup: keyboard 
+      }
+    )
+  } catch (err) {
+    console.error('Login request error:', err)
+    await ctx.reply('An error occurred. Please try again.')
+  }
 }
 
 async function submitBugReport(ctx: MasterContext, report: string): Promise<void> {
