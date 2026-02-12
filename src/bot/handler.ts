@@ -11,6 +11,8 @@ import {
   handleStartCommand,
   handleRegisterVisitor,
   handleNameInput,
+  handleCompanyInput,
+  handleTitleInput,
   handleEmailInput,
   handlePhoneInput,
   handleWalletInput,
@@ -61,6 +63,10 @@ export function createBotInstance(token: string, botId: string): Bot<BotContext>
     switch (ctx.session.state) {
       case ConversationState.COLLECTING_NAME:
         return handleNameInput()(ctx)
+      case ConversationState.COLLECTING_COMPANY:
+        return handleCompanyInput()(ctx)
+      case ConversationState.COLLECTING_TITLE:
+        return handleTitleInput()(ctx)
       case ConversationState.COLLECTING_EMAIL:
         return handleEmailInput()(ctx)
       case ConversationState.COLLECTING_PHONE:

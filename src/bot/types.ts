@@ -3,6 +3,8 @@ import type { Context } from 'grammy'
 export enum ConversationState {
   IDLE = 'idle',
   COLLECTING_NAME = 'collecting_name',
+  COLLECTING_COMPANY = 'collecting_company',
+  COLLECTING_TITLE = 'collecting_title',
   COLLECTING_EMAIL = 'collecting_email',
   COLLECTING_PHONE = 'collecting_phone',
   COLLECTING_WALLET = 'collecting_wallet',
@@ -18,6 +20,8 @@ export interface SessionData {
   isAdmin?: boolean
   visitorData: {
     full_name?: string
+    company?: string
+    title?: string
     email?: string
     phone?: string
     wallet_address?: string

@@ -36,16 +36,20 @@ export function handleStartCommand() {
         `✅ <b>You're already registered!</b>\n\n` +
         `Thank you for your interest. We'll keep you updated on event news and announcements.\n\n` +
         `<i>Powered by Moongate 🌙</i>`,
-        { parse_mode: 'HTML', reply_markup: getStartKeyboard() }
+        { parse_mode: 'HTML' }
       )
       return
     }
 
+    // Start onboarding flow directly
+    ctx.session.state = ConversationState.COLLECTING_NAME
+    ctx.session.visitorData = {}
+    
     await ctx.reply(
-      `🎪 <b>Welcome to our event!</b>\n\n` +
-      `We'd love to connect with you. Click below to register and stay updated.\n\n` +
-      `<i>Powered by Moongate 🌙</i>`,
-      { parse_mode: 'HTML', reply_markup: getStartKeyboard() }
+      `🎪 <b>Welcome!</b>\n\n` +
+      `Let's get you registered. It only takes a moment.\n\n` +
+      `<b>What's your name?</b>`,
+      { parse_mode: 'HTML' }
     )
   }
 }
@@ -70,16 +74,50 @@ export function handleNameInput() {
 
     const name = ctx.message?.text?.trim()
     if (!name || name.length < 2) {
-      await ctx.reply('Please provide a valid name.')
+      await ctx.reply('Please provide a valid name (at least 2 characters).')
       return
     }
 
     ctx.session.visitorData.full_name = name
-    ctx.session.state = ConversationState.COLLECTING_EMAIL
+    ctx.session.state = ConversationState.COLLECTING_COMPANY
 
     await ctx.reply(
-      "Great! What's your email address?",
-      { reply_markup: getSkipKeyboard('email') }
+      `Nice to meet you, <b>${name}</b>! 👋\n\n<b>What company or project are you with?</b>`,
+      { parse_mode: 'HTML', reply_markup: getSkipKeyboard('company') }
+    )
+  }
+}
+
+export function handleCompanyInput() {
+  return async (ctx: BotContext) => {
+    if (ctx.session.state !== ConversationState.COLLECTING_COMPANY) return
+
+    const company = ctx.message?.text?.trim()
+    if (company) {
+      ctx.session.visitorData.company = company
+    }
+
+    ctx.session.state = ConversationState.COLLECTING_TITLE
+    await ctx.reply(
+      `<b>What's your role or title?</b>\n\n<i>e.g., Developer, Founder, Marketing, Investor...</i>`,
+      { parse_mode: 'HTML', reply_markup: getSkipKeyboard('title') }
+    )
+  }
+}
+
+export function handleTitleInput() {
+  return async (ctx: BotContext) => {
+    if (ctx.session.state !== ConversationState.COLLECTING_TITLE) return
+
+    const title = ctx.message?.text?.trim()
+    if (title) {
+      ctx.session.visitorData.title = title
+    }
+
+    ctx.session.state = ConversationState.COLLECTING_EMAIL
+    await ctx.reply(
+      `<b>What's your email?</b>\n\n<i>We'll use this for follow-ups and important updates.</i>`,
+      { parse_mode: 'HTML', reply_markup: getSkipKeyboard('email') }
     )
   }
 }
@@ -98,11 +136,9 @@ export function handleEmailInput() {
       ctx.session.visitorData.email = email
     }
 
-    ctx.session.state = ConversationState.COLLECTING_PHONE
-    await ctx.reply(
-      "What's your phone number?",
-      { reply_markup: getSkipKeyboard('phone') }
-    )
+    // Go straight to confirmation (skip phone/wallet/notes for simpler flow)
+    ctx.session.state = ConversationState.CONFIRMING
+    await showConfirmation(ctx)
   }
 }
 
@@ -166,17 +202,29 @@ export function handleNotesInput() {
 
 export function handleSkip() {
   return async (ctx: BotContext) => {
-    const action = ctx.callbackQuery?.data?.split('_')[1]
-
     switch (ctx.session.state) {
-      case ConversationState.COLLECTING_EMAIL:
-        ctx.session.state = ConversationState.COLLECTING_PHONE
+      case ConversationState.COLLECTING_COMPANY:
+        ctx.session.state = ConversationState.COLLECTING_TITLE
         await ctx.reply(
-          "What's your phone number?",
-          { reply_markup: getSkipKeyboard('phone') }
+          `<b>What's your role or title?</b>\n\n<i>e.g., Developer, Founder, Marketing, Investor...</i>`,
+          { parse_mode: 'HTML', reply_markup: getSkipKeyboard('title') }
         )
         break
 
+      case ConversationState.COLLECTING_TITLE:
+        ctx.session.state = ConversationState.COLLECTING_EMAIL
+        await ctx.reply(
+          `<b>What's your email?</b>\n\n<i>We'll use this for follow-ups and important updates.</i>`,
+          { parse_mode: 'HTML', reply_markup: getSkipKeyboard('email') }
+        )
+        break
+
+      case ConversationState.COLLECTING_EMAIL:
+        ctx.session.state = ConversationState.CONFIRMING
+        await showConfirmation(ctx)
+        break
+
+      // Legacy states (keep for backwards compatibility)
       case ConversationState.COLLECTING_PHONE:
         ctx.session.state = ConversationState.COLLECTING_WALLET
         await ctx.reply(
@@ -206,7 +254,7 @@ export function handleSkip() {
 export function handleConfirm() {
   return async (ctx: BotContext) => {
     if (!ctx.eventId) {
-      await ctx.reply('Session expired. Please start again.')
+      await ctx.reply('Session expired. Please start again with /start')
       resetSession(ctx.botId, ctx.from!.id)
       return
     }
@@ -220,12 +268,16 @@ export function handleConfirm() {
       })
 
       await ctx.reply(
-        "Thank you for registering! We'll be in touch. Enjoy the event!"
+        `🎉 <b>You're all set!</b>\n\n` +
+        `Thank you for registering. We'll send you updates and announcements right here.\n\n` +
+        `Enjoy the event! 🚀\n\n` +
+        `<i>Powered by Moongate 🌙</i>`,
+        { parse_mode: 'HTML' }
       )
 
       resetSession(ctx.botId, ctx.from!.id)
     } catch (error) {
-      await ctx.reply('Failed to save your information. Please try again.')
+      await ctx.reply('❌ Failed to save your information. Please try again with /start')
     }
 
     try { await ctx.answerCallbackQuery() } catch {}
@@ -282,17 +334,14 @@ export function handleBackToConfirm() {
 }
 
 async function showConfirmation(ctx: BotContext) {
-  const { full_name, email, phone, wallet_address, notes } = ctx.session.visitorData
+  const { full_name, company, title, email } = ctx.session.visitorData
 
-  const summary = `
-Please confirm your information:
+  const summary = `✅ <b>Please confirm your details:</b>\n\n` +
+    `👤 <b>Name:</b> ${full_name || 'Not provided'}\n` +
+    `🏢 <b>Company:</b> ${company || 'Not provided'}\n` +
+    `💼 <b>Role:</b> ${title || 'Not provided'}\n` +
+    `📧 <b>Email:</b> ${email || 'Not provided'}\n\n` +
+    `<i>Powered by Moongate 🌙</i>`
 
-Name: ${full_name || 'Not provided'}
-Email: ${email || 'Not provided'}
-Phone: ${phone || 'Not provided'}
-Wallet: ${wallet_address || 'Not provided'}
-Notes: ${notes || 'Not provided'}
-  `.trim()
-
-  await ctx.reply(summary, { reply_markup: getConfirmKeyboard() })
+  await ctx.reply(summary, { parse_mode: 'HTML', reply_markup: getConfirmKeyboard() })
 }
