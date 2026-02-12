@@ -17,6 +17,8 @@ export enum ConversationState {
 export interface SessionData {
   state: ConversationState
   eventId?: string
+  eventSlug?: string
+  source?: string
   isAdmin?: boolean
   visitorData: {
     full_name?: string

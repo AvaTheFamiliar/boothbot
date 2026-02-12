@@ -28,10 +28,14 @@ export interface Event {
 
 export interface Visitor {
   id: string
-  event_id: string
+  bot_id: string
+  event_id: string | null
+  source: string | null
   telegram_id: number
   telegram_username: string | null
   full_name: string | null
+  company: string | null
+  title: string | null
   email: string | null
   phone: string | null
   wallet_address: string | null

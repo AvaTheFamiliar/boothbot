@@ -1,20 +1,26 @@
 import type { BotContext } from '../types'
 import { ConversationState } from '../types'
 import {
-  getStartKeyboard,
   getSkipKeyboard,
   getConfirmKeyboard,
   getEditFieldsKeyboard
 } from '../keyboards'
-import { createVisitor, findVisitorByTelegramId } from '../../db/repositories/visitor.repository'
+import { createVisitor, findVisitorByBotAndTelegramId } from '../../db/repositories/visitor.repository'
 import { isValidEmail, isValidPhone, isValidWalletAddress } from '../../lib/validation'
 import { resetSession } from '../session'
 
 export function handleStartCommand() {
   return async (ctx: BotContext) => {
-    // Check if already registered (if we have an event context)
-    if (ctx.eventId) {
-      const existingVisitor = await findVisitorByTelegramId(ctx.eventId, ctx.from!.id)
+    // Check for event deep link parameter
+    const payload = ctx.match?.toString().trim()
+    if (payload && payload.startsWith('event_')) {
+      ctx.session.eventSlug = payload.replace('event_', '')
+      ctx.session.source = `event:${ctx.session.eventSlug}`
+    }
+
+    // Check if already registered for this bot
+    if (ctx.botId) {
+      const existingVisitor = await findVisitorByBotAndTelegramId(ctx.botId, ctx.from!.id)
       if (existingVisitor) {
         await ctx.reply(
           `✅ <b>You're already registered!</b>\n\n` +
@@ -26,7 +32,7 @@ export function handleStartCommand() {
       }
     }
 
-    // Always start onboarding flow (event context set by middleware or will use default)
+    // Start onboarding flow
     ctx.session.state = ConversationState.COLLECTING_NAME
     ctx.session.visitorData = {}
     
@@ -43,7 +49,6 @@ export function handleRegisterVisitor() {
   return async (ctx: BotContext) => {
     try { await ctx.answerCallbackQuery() } catch {}
 
-    // Always start the flow - no dead ends
     ctx.session.state = ConversationState.COLLECTING_NAME
     ctx.session.visitorData = {}
     await ctx.reply(
@@ -127,7 +132,7 @@ export function handleEmailInput() {
       ctx.session.visitorData.email = email
     }
 
-    // Go straight to confirmation (skip phone/wallet/notes for simpler flow)
+    // Go straight to confirmation
     ctx.session.state = ConversationState.CONFIRMING
     await showConfirmation(ctx)
   }
@@ -215,7 +220,6 @@ export function handleSkip() {
         await showConfirmation(ctx)
         break
 
-      // Legacy states (keep for backwards compatibility)
       case ConversationState.COLLECTING_PHONE:
         ctx.session.state = ConversationState.COLLECTING_WALLET
         await ctx.reply(
@@ -244,34 +248,39 @@ export function handleSkip() {
 
 export function handleConfirm() {
   return async (ctx: BotContext) => {
-    // Try to save visitor data (best effort)
+    // Always save visitor with bot_id (required), event_id optional
     try {
-      // Get event ID from context or session
-      let eventId = ctx.eventId || ctx.session.eventId
-      
-      // If still no event, try to get default event for this bot
-      if (!eventId && ctx.botId) {
-        const { findDefaultEvent } = await import('../../db/repositories/event.repository')
-        const defaultEvent = await findDefaultEvent(ctx.botId)
-        if (defaultEvent) {
-          eventId = defaultEvent.id
+      if (!ctx.botId) {
+        console.error('No botId in context - cannot save visitor')
+      } else {
+        // Look up event_id if we have an event slug
+        let eventId: string | null = null
+        if (ctx.session.eventSlug || ctx.eventId) {
+          eventId = ctx.eventId || null
+          // If we have a slug but no eventId, try to look it up
+          if (!eventId && ctx.session.eventSlug) {
+            const { findEventBySlug } = await import('../../db/repositories/event.repository')
+            const event = await findEventBySlug(ctx.botId, ctx.session.eventSlug)
+            if (event) eventId = event.id
+          }
         }
-      }
 
-      if (eventId) {
         await createVisitor({
+          bot_id: ctx.botId,
           event_id: eventId,
+          source: ctx.session.source || 'direct',
           telegram_id: ctx.from!.id,
           telegram_username: ctx.from!.username,
           ...ctx.session.visitorData
         })
+        
+        console.log(`[visitor] Saved visitor ${ctx.from!.id} for bot ${ctx.botId}${eventId ? ` (event: ${eventId})` : ' (no event)'}`)
       }
     } catch (error) {
-      // Log but don't block the flow
-      console.error('Failed to save visitor (continuing anyway):', error)
+      console.error('Failed to save visitor:', error)
     }
 
-    // Always show thank you message - no dead ends!
+    // Always show thank you message
     await ctx.reply(
       `🎉 <b>You're all set!</b>\n\n` +
       `Thank you for stopping by! We'll be in touch with updates and exclusive content.\n\n` +
