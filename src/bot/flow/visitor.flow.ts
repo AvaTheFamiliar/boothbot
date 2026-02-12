@@ -248,10 +248,16 @@ export function handleSkip() {
 
 export function handleConfirm() {
   return async (ctx: BotContext) => {
+    console.log(`[confirm] User ${ctx.from?.id} confirming. Session state: ${ctx.session.state}, visitorData:`, JSON.stringify(ctx.session.visitorData))
+    
     // Always save visitor with bot_id (required), event_id optional
     try {
       if (!ctx.botId) {
         console.error('No botId in context - cannot save visitor')
+      } else if (!ctx.session.visitorData?.full_name) {
+        console.error(`[confirm] No visitorData for user ${ctx.from?.id} - session was lost!`)
+        await ctx.reply('⚠️ Your session expired. Please start over with /start')
+        return
       } else {
         // Look up event_id if we have an event slug
         let eventId: string | null = null
