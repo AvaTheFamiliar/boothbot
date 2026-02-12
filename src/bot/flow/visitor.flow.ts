@@ -13,7 +13,19 @@ import { resetSession } from '../session'
 export function handleStartCommand() {
   return async (ctx: BotContext) => {
     if (!ctx.eventId) {
-      await ctx.reply('Welcome! Please use a valid event link to register.')
+      // No event context - show welcome intro
+      await ctx.reply(
+        `👋 <b>Welcome!</b>\n\n` +
+        `This is an official event registration bot.\n\n` +
+        `📍 <b>How to register:</b>\n` +
+        `Scan a QR code at our booth or use an event link to get started.\n\n` +
+        `Once registered, you'll receive:\n` +
+        `• Event updates & announcements\n` +
+        `• Exclusive offers & swag info\n` +
+        `• Direct connection to our team\n\n` +
+        `<i>Powered by Moongate 🌙</i>`,
+        { parse_mode: 'HTML' }
+      )
       return
     }
 
@@ -21,15 +33,19 @@ export function handleStartCommand() {
 
     if (existingVisitor) {
       await ctx.reply(
-        'You are already registered for this event! Thank you for your interest.',
-        { reply_markup: getStartKeyboard() }
+        `✅ <b>You're already registered!</b>\n\n` +
+        `Thank you for your interest. We'll keep you updated on event news and announcements.\n\n` +
+        `<i>Powered by Moongate 🌙</i>`,
+        { parse_mode: 'HTML', reply_markup: getStartKeyboard() }
       )
       return
     }
 
     await ctx.reply(
-      'Welcome to our event! Click the button below to register as a visitor.',
-      { reply_markup: getStartKeyboard() }
+      `🎪 <b>Welcome to our event!</b>\n\n` +
+      `We'd love to connect with you. Click below to register and stay updated.\n\n` +
+      `<i>Powered by Moongate 🌙</i>`,
+      { parse_mode: 'HTML', reply_markup: getStartKeyboard() }
     )
   }
 }

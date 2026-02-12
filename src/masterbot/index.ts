@@ -198,11 +198,56 @@ export function createMasterBot() {
       const webhookUrl = `${baseUrl}/webhook/${newBot.id}`
       await testBot.api.setWebhook(webhookUrl)
 
+      // Configure bot profile and descriptions
+      try {
+        // Set the "What can this bot do?" description (shown before /start)
+        await testBot.api.setMyDescription({
+          description: `🎪 Official Event Registration Bot\n\n` +
+            `Scan a QR code at our booth to:\n` +
+            `✓ Register for the event\n` +
+            `✓ Get exclusive updates\n` +
+            `✓ Connect with our team\n\n` +
+            `Powered by Moongate 🌙`
+        })
+
+        // Set short description (shown in search/share)
+        await testBot.api.setMyShortDescription({
+          short_description: `Event registration & lead capture. Powered by Moongate 🌙`
+        })
+
+        // Set available commands
+        await testBot.api.setMyCommands([
+          { command: 'start', description: 'Start or register for an event' },
+          { command: 'help', description: 'Show help and available commands' }
+        ])
+
+        // Set admin commands (only visible to admins)
+        await testBot.api.setMyCommands([
+          { command: 'start', description: 'Start or register for an event' },
+          { command: 'admin', description: 'Admin panel' },
+          { command: 'newevent', description: 'Create a new event' },
+          { command: 'events', description: 'List your events' },
+          { command: 'stats', description: 'View event statistics' },
+          { command: 'export', description: 'Export visitors to CSV' },
+          { command: 'broadcast', description: 'Send message to all visitors' },
+          { command: 'help', description: 'Show help and available commands' }
+        ], { scope: { type: 'chat', chat_id: telegramId } })
+
+        console.log(`[masterbot] Configured bot @${botInfo.username} with descriptions and commands`)
+      } catch (configError) {
+        console.error('[masterbot] Failed to configure bot profile:', configError)
+        // Non-fatal, continue anyway
+      }
+
       ctx.session.step = 'idle'
 
       await ctx.reply(
         `✅ <b>Success!</b>\n\n` +
         `Your booth bot @${botInfo.username} is ready!\n\n` +
+        `<b>What's configured:</b>\n` +
+        `• Welcome screen with Moongate branding\n` +
+        `• Bot description & commands\n` +
+        `• Webhook for real-time updates\n\n` +
         `<b>Next steps:</b>\n` +
         `1️⃣ Open @${botInfo.username}\n` +
         `2️⃣ Send /admin to access admin commands\n` +
