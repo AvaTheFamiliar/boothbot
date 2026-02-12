@@ -19,7 +19,7 @@ const BOT_USERNAME = 'MoongateEventBot'
 
 declare global {
   interface Window {
-    onTelegramAuth: (user: TelegramUser) => void
+    onTelegramAuth?: (user: TelegramUser) => void
   }
 }
 
