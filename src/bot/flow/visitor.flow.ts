@@ -132,9 +132,8 @@ export function handleEmailInput() {
       ctx.session.visitorData.email = email
     }
 
-    // Go straight to confirmation
-    ctx.session.state = ConversationState.CONFIRMING
-    await showConfirmation(ctx)
+    // Save immediately and show thank you
+    await saveVisitorAndThankYou(ctx)
   }
 }
 
@@ -216,8 +215,8 @@ export function handleSkip() {
         break
 
       case ConversationState.COLLECTING_EMAIL:
-        ctx.session.state = ConversationState.CONFIRMING
-        await showConfirmation(ctx)
+        // Save immediately when skipping email
+        await saveVisitorAndThankYou(ctx)
         break
 
       case ConversationState.COLLECTING_PHONE:
@@ -246,57 +245,61 @@ export function handleSkip() {
   }
 }
 
+// Save visitor immediately and show thank you - no confirmation needed
+async function saveVisitorAndThankYou(ctx: BotContext) {
+  console.log(`[save] User ${ctx.from?.id} saving. visitorData:`, JSON.stringify(ctx.session.visitorData))
+  
+  try {
+    if (!ctx.botId) {
+      console.error('No botId in context - cannot save visitor')
+    } else if (!ctx.session.visitorData?.full_name) {
+      console.error(`[save] No visitorData for user ${ctx.from?.id} - session was lost!`)
+      await ctx.reply('⚠️ Your session expired. Please start over with /start')
+      return
+    } else {
+      // Look up event_id if we have an event slug
+      let eventId: string | null = null
+      if (ctx.session.eventSlug || ctx.eventId) {
+        eventId = ctx.eventId || null
+        if (!eventId && ctx.session.eventSlug) {
+          const { findEventBySlug } = await import('../../db/repositories/event.repository')
+          const event = await findEventBySlug(ctx.botId, ctx.session.eventSlug)
+          if (event) eventId = event.id
+        }
+      }
+
+      await createVisitor({
+        bot_id: ctx.botId,
+        event_id: eventId,
+        source: ctx.session.source || 'direct',
+        telegram_id: ctx.from!.id,
+        telegram_username: ctx.from!.username,
+        ...ctx.session.visitorData
+      })
+      
+      console.log(`[visitor] Saved visitor ${ctx.from!.id} for bot ${ctx.botId}${eventId ? ` (event: ${eventId})` : ' (no event)'}`)
+    }
+  } catch (error) {
+    console.error('Failed to save visitor:', error)
+  }
+
+  // Show thank you message
+  await ctx.reply(
+    `🎉 <b>You're all set!</b>\n\n` +
+    `Thank you for stopping by! We'll be in touch with updates and exclusive content.\n\n` +
+    `🎁 <b>Don't forget to grab your merch at our booth!</b>\n\n` +
+    `See you around! 👋\n\n` +
+    `<i>Powered by Moongate 🌙</i>`,
+    { parse_mode: 'HTML' }
+  )
+
+  resetSession(ctx.botId, ctx.from!.id)
+}
+
+// Legacy confirm handler - just calls saveVisitorAndThankYou
 export function handleConfirm() {
   return async (ctx: BotContext) => {
-    console.log(`[confirm] User ${ctx.from?.id} confirming. Session state: ${ctx.session.state}, visitorData:`, JSON.stringify(ctx.session.visitorData))
-    
-    // Always save visitor with bot_id (required), event_id optional
-    try {
-      if (!ctx.botId) {
-        console.error('No botId in context - cannot save visitor')
-      } else if (!ctx.session.visitorData?.full_name) {
-        console.error(`[confirm] No visitorData for user ${ctx.from?.id} - session was lost!`)
-        await ctx.reply('⚠️ Your session expired. Please start over with /start')
-        return
-      } else {
-        // Look up event_id if we have an event slug
-        let eventId: string | null = null
-        if (ctx.session.eventSlug || ctx.eventId) {
-          eventId = ctx.eventId || null
-          // If we have a slug but no eventId, try to look it up
-          if (!eventId && ctx.session.eventSlug) {
-            const { findEventBySlug } = await import('../../db/repositories/event.repository')
-            const event = await findEventBySlug(ctx.botId, ctx.session.eventSlug)
-            if (event) eventId = event.id
-          }
-        }
-
-        await createVisitor({
-          bot_id: ctx.botId,
-          event_id: eventId,
-          source: ctx.session.source || 'direct',
-          telegram_id: ctx.from!.id,
-          telegram_username: ctx.from!.username,
-          ...ctx.session.visitorData
-        })
-        
-        console.log(`[visitor] Saved visitor ${ctx.from!.id} for bot ${ctx.botId}${eventId ? ` (event: ${eventId})` : ' (no event)'}`)
-      }
-    } catch (error) {
-      console.error('Failed to save visitor:', error)
-    }
-
-    // Always show thank you message
-    await ctx.reply(
-      `🎉 <b>You're all set!</b>\n\n` +
-      `Thank you for stopping by! We'll be in touch with updates and exclusive content.\n\n` +
-      `🎁 <b>Don't forget to grab your merch at our booth!</b>\n\n` +
-      `See you around! 👋\n\n` +
-      `<i>Powered by Moongate 🌙</i>`,
-      { parse_mode: 'HTML' }
-    )
-
-    resetSession(ctx.botId, ctx.from!.id)
+    await saveVisitorAndThankYou(ctx)
     try { await ctx.answerCallbackQuery() } catch {}
   }
 }
