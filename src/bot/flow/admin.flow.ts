@@ -86,8 +86,8 @@ function generateSlug(name: string): string {
 export function handleEventNameInput() {
   return async (ctx: BotContext) => {
     const name = ctx.message?.text?.trim()
-    if (!name || name.length < 2) {
-      await ctx.reply('Please provide a valid event name (at least 2 characters).')
+    if (!name || name.length < 1) {
+      await ctx.reply('Please provide a valid event name.')
       return
     }
 

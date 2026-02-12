@@ -63,9 +63,9 @@ export function handleNameInput() {
     if (ctx.session.state !== ConversationState.COLLECTING_NAME) return
 
     const name = ctx.message?.text?.trim()
-    if (!name || name.length < 2) {
+    if (!name || name.length < 1) {
       await ctx.reply(
-        `Please enter your name (at least 2 characters).\n\n<b>What's your name?</b>`,
+        `Please enter your name.\n\n<b>What's your name?</b>`,
         { parse_mode: 'HTML' }
       )
       return
