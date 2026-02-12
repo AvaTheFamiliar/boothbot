@@ -33,7 +33,7 @@ export function createMasterBot() {
     if (existingTenant) {
       const bots = await findBotsByTenantId(existingTenant.id)
       await ctx.reply(
-        `👋 Welcome back to BoothBot!\n\n` +
+        `👋 Welcome back to Moongate Booths!\n\n` +
         `You have ${bots.length} booth bot(s) set up.\n\n` +
         `Commands:\n` +
         `/newbot - Create a new booth bot\n` +
@@ -43,16 +43,16 @@ export function createMasterBot() {
       )
     } else {
       await ctx.reply(
-        `🎪 <b>Welcome to BoothBot!</b>\n\n` +
-        `Capture leads at crypto conferences with your own branded Telegram bot.\n\n` +
+        `🌙 <b>Welcome to Moongate Booths!</b>\n\n` +
+        `Turn booth visitors into qualified leads with your own Telegram bot.\n\n` +
         `<b>How it works:</b>\n` +
         `1️⃣ Create a bot with @BotFather\n` +
         `2️⃣ Send me the token\n` +
         `3️⃣ Create events & get QR codes\n` +
         `4️⃣ Visitors scan → you capture leads!\n\n` +
         `💰 <b>Pricing:</b>\n` +
-        `• Free: Up to 25 contacts\n` +
-        `• Pro: $100/mo per 1,000 contacts\n\n` +
+        `• Free: First 25 leads\n` +
+        `• Pro: $100/mo per 1,000 leads\n\n` +
         `Ready? Use /newbot to get started!`,
         { parse_mode: 'HTML' }
       )
@@ -102,17 +102,17 @@ export function createMasterBot() {
   // /help command
   bot.command('help', async (ctx) => {
     await ctx.reply(
-      `📚 <b>BoothBot Commands</b>\n\n` +
+      `📚 <b>Moongate Booths Commands</b>\n\n` +
       `/start - Welcome message\n` +
       `/newbot - Create a new booth bot\n` +
       `/mybots - List your bots\n` +
       `/bug - Report a bug\n` +
       `/help - Show this message\n\n` +
       `🌐 <b>Web Dashboard:</b>\n` +
-      `https://boothbot-dashboard.vercel.app\n\n` +
+      `https://boothbot-web.vercel.app\n\n` +
       `💰 <b>Pricing:</b>\n` +
-      `• Free: Up to 25 contacts\n` +
-      `• Pro: $100/mo per 1,000 contacts`,
+      `• Free: First 25 leads\n` +
+      `• Pro: $100/mo per 1,000 leads`,
       { parse_mode: 'HTML' }
     )
   })
@@ -180,8 +180,6 @@ export function createMasterBot() {
       if (!tenant) {
         tenant = await createTenant({
           telegram_id: telegramId,
-          email: `tg_${telegramId}@boothbot.local`,
-          password_hash: '',
         })
       }
 
@@ -201,14 +199,14 @@ export function createMasterBot() {
       // Configure bot profile and descriptions
       try {
         // Set the "What can this bot do?" description (shown before /start)
-        const description = `🎪 Official Event Registration Bot
+        const description = `🌙 Official Event Registration Bot
 
 Scan a QR code at our booth to:
 ✓ Register for the event
 ✓ Get exclusive updates
 ✓ Connect with our team
 
-Powered by Moongate 🌙`
+Powered by Moongate Booths`
 
         await testBot.api.raw.setMyDescription({ description })
 
@@ -259,7 +257,7 @@ Powered by Moongate 🌙`
         `1️⃣ Open @${botInfo.username}\n` +
         `2️⃣ Send /admin to access admin commands\n` +
         `3️⃣ Create your first event with /newevent\n\n` +
-        `🎁 <b>Free tier:</b> Up to 25 contacts included!`,
+        `🎁 <b>Free tier:</b> First 25 leads included!`,
         { parse_mode: 'HTML' }
       )
     } catch (error: any) {
@@ -296,7 +294,7 @@ async function submitBugReport(ctx: MasterContext, report: string): Promise<void
     ctx.session.step = 'idle'
     await ctx.reply(
       `✅ <b>Bug Report Submitted</b>\n\n` +
-      `Thank you for helping us improve BoothBot!\n\n` +
+      `Thank you for helping us improve Moongate Booths!\n\n` +
       `Your report has been logged and we'll look into it.`,
       { parse_mode: 'HTML' }
     )

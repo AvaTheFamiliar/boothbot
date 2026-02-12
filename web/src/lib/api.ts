@@ -32,17 +32,33 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
   }
 }
 
+interface TelegramAuthData {
+  id: number
+  first_name: string
+  last_name?: string
+  username?: string
+  photo_url?: string
+  auth_date: number
+  hash: string
+}
+
 export const api = {
   register: (email: string, password: string) =>
-    request<{ token: string; tenant: { id: string; email: string } }>('/api/auth/register', {
+    request<{ token: string; tenant: any }>('/api/auth/register', {
       method: 'POST',
       body: JSON.stringify({ email, password }),
     }),
 
   login: (email: string, password: string) =>
-    request<{ token: string; tenant: { id: string; email: string } }>('/api/auth/login', {
+    request<{ token: string; tenant: any }>('/api/auth/login', {
       method: 'POST',
       body: JSON.stringify({ email, password }),
+    }),
+
+  loginWithTelegram: (data: TelegramAuthData) =>
+    request<{ token: string; tenant: any }>('/api/auth/telegram', {
+      method: 'POST',
+      body: JSON.stringify(data),
     }),
 
   getBots: () => request<any[]>('/api/bots'),

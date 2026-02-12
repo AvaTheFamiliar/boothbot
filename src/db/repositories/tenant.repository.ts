@@ -2,16 +2,24 @@ import { supabase } from '../client'
 
 export interface Tenant {
   id: string
-  email: string
-  password_hash: string
-  telegram_id?: number
+  email?: string | null
+  password_hash?: string | null
+  telegram_id?: number | null
+  first_name?: string | null
+  last_name?: string | null
+  username?: string | null
+  photo_url?: string | null
   created_at: string
 }
 
 export async function createTenant(data: {
-  email: string
-  password_hash: string
+  email?: string
+  password_hash?: string
   telegram_id?: number
+  first_name?: string
+  last_name?: string
+  username?: string
+  photo_url?: string
 }): Promise<Tenant> {
   const { data: tenant, error } = await supabase
     .from('bb_tenants')
