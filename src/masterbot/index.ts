@@ -201,37 +201,44 @@ export function createMasterBot() {
       // Configure bot profile and descriptions
       try {
         // Set the "What can this bot do?" description (shown before /start)
-        await testBot.api.setMyDescription({
-          description: `🎪 Official Event Registration Bot\n\n` +
-            `Scan a QR code at our booth to:\n` +
-            `✓ Register for the event\n` +
-            `✓ Get exclusive updates\n` +
-            `✓ Connect with our team\n\n` +
-            `Powered by Moongate 🌙`
-        })
+        const description = `🎪 Official Event Registration Bot
+
+Scan a QR code at our booth to:
+✓ Register for the event
+✓ Get exclusive updates
+✓ Connect with our team
+
+Powered by Moongate 🌙`
+
+        await testBot.api.raw.setMyDescription({ description })
 
         // Set short description (shown in search/share)
-        await testBot.api.setMyShortDescription({
+        await testBot.api.raw.setMyShortDescription({ 
           short_description: `Event registration & lead capture. Powered by Moongate 🌙`
         })
 
-        // Set available commands
-        await testBot.api.setMyCommands([
-          { command: 'start', description: 'Start or register for an event' },
-          { command: 'help', description: 'Show help and available commands' }
-        ])
+        // Set available commands (default for all users)
+        await testBot.api.raw.setMyCommands({
+          commands: [
+            { command: 'start', description: 'Start or register for an event' },
+            { command: 'help', description: 'Show help and available commands' }
+          ]
+        })
 
-        // Set admin commands (only visible to admins)
-        await testBot.api.setMyCommands([
-          { command: 'start', description: 'Start or register for an event' },
-          { command: 'admin', description: 'Admin panel' },
-          { command: 'newevent', description: 'Create a new event' },
-          { command: 'events', description: 'List your events' },
-          { command: 'stats', description: 'View event statistics' },
-          { command: 'export', description: 'Export visitors to CSV' },
-          { command: 'broadcast', description: 'Send message to all visitors' },
-          { command: 'help', description: 'Show help and available commands' }
-        ], { scope: { type: 'chat', chat_id: telegramId } })
+        // Set admin commands (only visible to bot owner)
+        await testBot.api.raw.setMyCommands({
+          commands: [
+            { command: 'start', description: 'Start or register for an event' },
+            { command: 'admin', description: 'Admin panel' },
+            { command: 'newevent', description: 'Create a new event' },
+            { command: 'events', description: 'List your events' },
+            { command: 'stats', description: 'View event statistics' },
+            { command: 'export', description: 'Export visitors to CSV' },
+            { command: 'broadcast', description: 'Send message to all visitors' },
+            { command: 'help', description: 'Show help and available commands' }
+          ],
+          scope: { type: 'chat', chat_id: telegramId }
+        })
 
         console.log(`[masterbot] Configured bot @${botInfo.username} with descriptions and commands`)
       } catch (configError) {
