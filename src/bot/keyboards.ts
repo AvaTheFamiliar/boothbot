@@ -19,9 +19,8 @@ export function getConfirmKeyboard(): InlineKeyboard {
 export function getEditFieldsKeyboard(): InlineKeyboard {
   return new InlineKeyboard()
     .text('Edit Name', 'edit_name').row()
+    .text('Edit Company', 'edit_company').row()
+    .text('Edit Role', 'edit_title').row()
     .text('Edit Email', 'edit_email').row()
-    .text('Edit Phone', 'edit_phone').row()
-    .text('Edit Wallet', 'edit_wallet').row()
-    .text('Edit Notes', 'edit_notes').row()
-    .text('Back to Confirm', 'back_to_confirm')
+    .text('← Back', 'back_to_confirm')
 }

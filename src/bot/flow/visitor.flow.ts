@@ -43,13 +43,13 @@ export function handleRegisterVisitor() {
   return async (ctx: BotContext) => {
     try { await ctx.answerCallbackQuery() } catch {}
 
-    if (!ctx.eventId) {
-      await ctx.reply('Please start from a valid event link.')
-      return
-    }
-
+    // Always start the flow - no dead ends
     ctx.session.state = ConversationState.COLLECTING_NAME
-    await ctx.reply("Let's get started! What's your full name?")
+    ctx.session.visitorData = {}
+    await ctx.reply(
+      `👋 <b>Let's get you registered!</b>\n\n<b>What's your name?</b>`,
+      { parse_mode: 'HTML' }
+    )
   }
 }
 
@@ -59,7 +59,10 @@ export function handleNameInput() {
 
     const name = ctx.message?.text?.trim()
     if (!name || name.length < 2) {
-      await ctx.reply('Please provide a valid name (at least 2 characters).')
+      await ctx.reply(
+        `Please enter your name (at least 2 characters).\n\n<b>What's your name?</b>`,
+        { parse_mode: 'HTML' }
+      )
       return
     }
 
@@ -113,7 +116,10 @@ export function handleEmailInput() {
 
     const email = ctx.message?.text?.trim()
     if (email && !isValidEmail(email)) {
-      await ctx.reply('Please provide a valid email address.')
+      await ctx.reply(
+        `That doesn't look like a valid email. Try again or skip.\n\n<b>What's your email?</b>`,
+        { parse_mode: 'HTML', reply_markup: getSkipKeyboard('email') }
+      )
       return
     }
 
@@ -297,23 +303,19 @@ export function handleEditField() {
     switch (field) {
       case 'name':
         ctx.session.state = ConversationState.COLLECTING_NAME
-        await ctx.reply("What's your full name?")
+        await ctx.reply("<b>What's your name?</b>", { parse_mode: 'HTML' })
+        break
+      case 'company':
+        ctx.session.state = ConversationState.COLLECTING_COMPANY
+        await ctx.reply("<b>What company or project are you with?</b>", { parse_mode: 'HTML', reply_markup: getSkipKeyboard('company') })
+        break
+      case 'title':
+        ctx.session.state = ConversationState.COLLECTING_TITLE
+        await ctx.reply("<b>What's your role or title?</b>", { parse_mode: 'HTML', reply_markup: getSkipKeyboard('title') })
         break
       case 'email':
         ctx.session.state = ConversationState.COLLECTING_EMAIL
-        await ctx.reply("What's your email address?", { reply_markup: getSkipKeyboard('email') })
-        break
-      case 'phone':
-        ctx.session.state = ConversationState.COLLECTING_PHONE
-        await ctx.reply("What's your phone number?", { reply_markup: getSkipKeyboard('phone') })
-        break
-      case 'wallet':
-        ctx.session.state = ConversationState.COLLECTING_WALLET
-        await ctx.reply("What's your wallet address?", { reply_markup: getSkipKeyboard('wallet') })
-        break
-      case 'notes':
-        ctx.session.state = ConversationState.COLLECTING_NOTES
-        await ctx.reply('Any additional notes?', { reply_markup: getSkipKeyboard('notes') })
+        await ctx.reply("<b>What's your email?</b>", { parse_mode: 'HTML', reply_markup: getSkipKeyboard('email') })
         break
     }
 
