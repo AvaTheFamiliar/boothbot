@@ -7,7 +7,7 @@ import {
 } from '../keyboards'
 import { createVisitor, findVisitorByBotAndTelegramId } from '../../db/repositories/visitor.repository'
 import { isValidEmail, isValidPhone, isValidWalletAddress } from '../../lib/validation'
-import { resetSession } from '../session'
+import { resetSessionAsync } from '../session'
 
 export function handleStartCommand() {
   return async (ctx: BotContext) => {
@@ -299,7 +299,7 @@ async function saveVisitorAndThankYou(ctx: BotContext) {
     { parse_mode: 'HTML' }
   )
 
-  resetSession(ctx.botId, ctx.from!.id)
+  await resetSessionAsync(ctx.botId, ctx.from!.id)
 }
 
 // Legacy confirm handler - just calls saveVisitorAndThankYou

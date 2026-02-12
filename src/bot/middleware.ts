@@ -1,5 +1,5 @@
 import type { BotContext } from './types'
-import { getSession, setSession } from './session'
+import { getSessionAsync, setSessionAsync } from './session'
 import { checkBillingLimits, getBillingMessage } from '../lib/billing'
 import { findEventById, findEventBySlug } from '../db/repositories/event.repository'
 import { findBotById } from '../db/repositories/bot.repository'
@@ -8,7 +8,8 @@ export function sessionMiddleware(botId: string) {
   return async (ctx: BotContext, next: () => Promise<void>) => {
     if (!ctx.from) return
 
-    const session = getSession(botId, ctx.from.id)
+    // Load session from DB
+    const session = await getSessionAsync(botId, ctx.from.id)
     ctx.session = session
     ctx.botId = botId
     
@@ -17,7 +18,8 @@ export function sessionMiddleware(botId: string) {
     await next()
 
     console.log(`[session:after] User ${ctx.from.id} state: ${ctx.session.state}, data: ${JSON.stringify(ctx.session.visitorData)}`)
-    setSession(botId, ctx.from.id, ctx.session)
+    // Save session to DB
+    await setSessionAsync(botId, ctx.from.id, ctx.session)
   }
 }
 
