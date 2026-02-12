@@ -12,42 +12,27 @@ import { resetSession } from '../session'
 
 export function handleStartCommand() {
   return async (ctx: BotContext) => {
-    if (!ctx.eventId) {
-      // No event context - show welcome intro
-      await ctx.reply(
-        `👋 <b>Welcome!</b>\n\n` +
-        `This is an official event registration bot.\n\n` +
-        `📍 <b>How to register:</b>\n` +
-        `Scan a QR code at our booth or use an event link to get started.\n\n` +
-        `Once registered, you'll receive:\n` +
-        `• Event updates & announcements\n` +
-        `• Exclusive offers & swag info\n` +
-        `• Direct connection to our team\n\n` +
-        `<i>Powered by Moongate 🌙</i>`,
-        { parse_mode: 'HTML' }
-      )
-      return
+    // Check if already registered (if we have an event context)
+    if (ctx.eventId) {
+      const existingVisitor = await findVisitorByTelegramId(ctx.eventId, ctx.from!.id)
+      if (existingVisitor) {
+        await ctx.reply(
+          `✅ <b>You're already registered!</b>\n\n` +
+          `Thank you for your interest. We'll keep you updated on event news and announcements.\n\n` +
+          `<i>Powered by Moongate 🌙</i>`,
+          { parse_mode: 'HTML' }
+        )
+        return
+      }
     }
 
-    const existingVisitor = await findVisitorByTelegramId(ctx.eventId, ctx.from!.id)
-
-    if (existingVisitor) {
-      await ctx.reply(
-        `✅ <b>You're already registered!</b>\n\n` +
-        `Thank you for your interest. We'll keep you updated on event news and announcements.\n\n` +
-        `<i>Powered by Moongate 🌙</i>`,
-        { parse_mode: 'HTML' }
-      )
-      return
-    }
-
-    // Start onboarding flow directly
+    // Always start onboarding flow (event context set by middleware or will use default)
     ctx.session.state = ConversationState.COLLECTING_NAME
     ctx.session.visitorData = {}
     
     await ctx.reply(
-      `🎪 <b>Welcome!</b>\n\n` +
-      `Let's get you registered. It only takes a moment.\n\n` +
+      `👋 <b>Welcome!</b>\n\n` +
+      `Let's get you registered — it only takes a moment.\n\n` +
       `<b>What's your name?</b>`,
       { parse_mode: 'HTML' }
     )
@@ -253,15 +238,32 @@ export function handleSkip() {
 
 export function handleConfirm() {
   return async (ctx: BotContext) => {
-    if (!ctx.eventId) {
-      await ctx.reply('Session expired. Please start again with /start')
+    // Get event ID from context or session
+    let eventId = ctx.eventId || ctx.session.eventId
+    
+    // If still no event, try to get default event for this bot
+    if (!eventId && ctx.botId) {
+      const { findDefaultEvent } = await import('../../db/repositories/event.repository')
+      const defaultEvent = await findDefaultEvent(ctx.botId)
+      if (defaultEvent) {
+        eventId = defaultEvent.id
+      }
+    }
+
+    if (!eventId) {
+      await ctx.reply(
+        `❌ <b>No event configured yet.</b>\n\n` +
+        `Please ask the booth organizer to set up an event first.`,
+        { parse_mode: 'HTML' }
+      )
       resetSession(ctx.botId, ctx.from!.id)
+      try { await ctx.answerCallbackQuery() } catch {}
       return
     }
 
     try {
       await createVisitor({
-        event_id: ctx.eventId,
+        event_id: eventId,
         telegram_id: ctx.from!.id,
         telegram_username: ctx.from!.username,
         ...ctx.session.visitorData
@@ -277,6 +279,7 @@ export function handleConfirm() {
 
       resetSession(ctx.botId, ctx.from!.id)
     } catch (error) {
+      console.error('Failed to create visitor:', error)
       await ctx.reply('❌ Failed to save your information. Please try again with /start')
     }
 

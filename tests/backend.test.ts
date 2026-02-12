@@ -159,3 +159,68 @@ describe('Protected API Endpoints', () => {
     expect(res.status).toBe(401)
   })
 })
+
+describe('Onboarding Flow', () => {
+  const testUserId = 900000 + Math.floor(Math.random() * 100000)
+  
+  test('/start initiates name collection', async () => {
+    const result = await sendWebhook(createUpdate('/start', testUserId))
+    expect(result.ok).toBe(true)
+  })
+
+  test('Name input triggers company question', async () => {
+    // First /start to initiate
+    await sendWebhook(createUpdate('/start', testUserId))
+    // Then send name
+    const result = await sendWebhook(createUpdate('John Doe', testUserId))
+    expect(result.ok).toBe(true)
+  })
+
+  test('Company input triggers title question', async () => {
+    const userId = testUserId + 1
+    await sendWebhook(createUpdate('/start', userId))
+    await sendWebhook(createUpdate('Jane Smith', userId))
+    const result = await sendWebhook(createUpdate('Acme Corp', userId))
+    expect(result.ok).toBe(true)
+  })
+
+  test('Title input triggers email question', async () => {
+    const userId = testUserId + 2
+    await sendWebhook(createUpdate('/start', userId))
+    await sendWebhook(createUpdate('Bob Wilson', userId))
+    await sendWebhook(createUpdate('Tech Startup', userId))
+    const result = await sendWebhook(createUpdate('Developer', userId))
+    expect(result.ok).toBe(true)
+  })
+
+  test('Email input triggers confirmation', async () => {
+    const userId = testUserId + 3
+    await sendWebhook(createUpdate('/start', userId))
+    await sendWebhook(createUpdate('Alice Brown', userId))
+    await sendWebhook(createUpdate('Blockchain Inc', userId))
+    await sendWebhook(createUpdate('Founder', userId))
+    const result = await sendWebhook(createUpdate('alice@example.com', userId))
+    expect(result.ok).toBe(true)
+  })
+
+  test('Skip buttons work in flow', async () => {
+    const userId = testUserId + 4
+    await sendWebhook(createUpdate('/start', userId))
+    await sendWebhook(createUpdate('Skip Tester', userId))
+    // Skip company
+    const skipResult = await sendWebhook(createCallbackUpdate('skip_company', userId))
+    expect(skipResult).toBeDefined()
+  })
+
+  test('Full flow with confirmation callback', async () => {
+    const userId = testUserId + 5
+    await sendWebhook(createUpdate('/start', userId))
+    await sendWebhook(createUpdate('Complete User', userId))
+    await sendWebhook(createUpdate('Full Corp', userId))
+    await sendWebhook(createUpdate('CEO', userId))
+    await sendWebhook(createUpdate('complete@test.com', userId))
+    // Confirm registration
+    const confirmResult = await sendWebhook(createCallbackUpdate('confirm_registration', userId))
+    expect(confirmResult).toBeDefined()
+  })
+})
