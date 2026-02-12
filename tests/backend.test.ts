@@ -195,6 +195,11 @@ describe('Protected API Endpoints', () => {
     const res = await fetch(`${API_URL}/api/events`)
     expect(res.status).toBe(401)
   })
+
+  test('GET /api/bots/:id/leads requires auth', async () => {
+    const res = await fetch(`${API_URL}/api/bots/${BOT_ID}/leads`)
+    expect(res.status).toBe(401)
+  })
 })
 
 describe('Onboarding Flow (No Event Required)', () => {

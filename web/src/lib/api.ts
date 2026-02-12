@@ -81,6 +81,8 @@ export const api = {
       body: JSON.stringify({ token }),
     }),
 
+  getLeads: (botId: string) => request<any[]>(`/api/bots/${botId}/leads`),
+
   getEvents: (botId: string) => request<any[]>(`/api/events?botId=${botId}`),
   
   createEvent: (botId: string, name: string, slug: string) =>

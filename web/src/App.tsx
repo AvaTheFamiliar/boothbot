@@ -87,7 +87,7 @@ function TelegramLoginButton({ onSuccess }: { onSuccess: (data: { token: string;
       
       // Start polling for approval
       let attempts = 0
-      const maxAttempts = 60 // 5 minutes at 5 second intervals
+      const maxAttempts = 60
       
       pollingRef.current = setInterval(async () => {
         attempts++
@@ -113,7 +113,6 @@ function TelegramLoginButton({ onSuccess }: { onSuccess: (data: { token: string;
           setError('Login request expired')
           setStatus('error')
         }
-        // If pending, keep polling
       }, 2000)
       
     } catch (err) {
@@ -248,10 +247,8 @@ function LoginPage({ onLoginWithToken }: { onLoginWithToken: (data: { token: str
           </p>
         </div>
 
-        {/* Telegram Login */}
         <TelegramLoginButton onSuccess={handleTelegramSuccess} />
         
-        {/* Pricing */}
         <div style={{ marginTop: 32, padding: 16, backgroundColor: colors.bg, borderRadius: 10, textAlign: 'center' }}>
           <p style={{ color: colors.accent, fontSize: 14, fontWeight: 500, marginBottom: 4 }}>🎁 Free for your first 25 leads</p>
           <p style={{ color: colors.textMuted, fontSize: 13 }}>Then $100/mo per 1,000 leads captured</p>
@@ -261,11 +258,127 @@ function LoginPage({ onLoginWithToken }: { onLoginWithToken: (data: { token: str
   )
 }
 
+interface Lead {
+  id: string
+  telegram_id: number
+  telegram_username: string | null
+  full_name: string | null
+  company: string | null
+  title: string | null
+  email: string | null
+  source: string | null
+  created_at: string
+}
+
+function LeadsTable({ botId, botUsername, onBack }: { botId: string; botUsername: string; onBack: () => void }) {
+  const [leads, setLeads] = useState<Lead[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    loadLeads()
+  }, [botId])
+
+  const loadLeads = async () => {
+    setLoading(true)
+    const result = await api.getLeads(botId)
+    if (result.data) setLeads(result.data)
+    setLoading(false)
+  }
+
+  return (
+    <div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 24 }}>
+        <button 
+          onClick={onBack}
+          style={{ 
+            padding: '8px 16px', 
+            backgroundColor: 'transparent', 
+            border: `1px solid ${colors.border}`, 
+            borderRadius: 6, 
+            color: colors.text, 
+            cursor: 'pointer', 
+            fontSize: 14 
+          }}
+        >
+          ← Back
+        </button>
+        <h2 style={{ color: colors.text, fontSize: 20, margin: 0 }}>
+          Leads for @{botUsername}
+        </h2>
+        <span style={{ color: colors.textMuted, fontSize: 14 }}>({leads.length} total)</span>
+      </div>
+
+      {loading ? (
+        <p style={{ color: colors.textMuted }}>Loading leads...</p>
+      ) : leads.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: 40, backgroundColor: colors.bgCard, borderRadius: 12, border: `1px solid ${colors.border}` }}>
+          <p style={{ color: colors.textMuted, fontSize: 16 }}>No leads yet</p>
+          <p style={{ color: colors.textMuted, fontSize: 14, marginTop: 8 }}>
+            Share your bot link or QR code to start capturing leads
+          </p>
+        </div>
+      ) : (
+        <div style={{ backgroundColor: colors.bgCard, borderRadius: 12, border: `1px solid ${colors.border}`, overflow: 'hidden' }}>
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 700 }}>
+              <thead>
+                <tr style={{ borderBottom: `1px solid ${colors.border}` }}>
+                  <th style={{ padding: '14px 16px', textAlign: 'left', color: colors.textMuted, fontSize: 12, fontWeight: 600, textTransform: 'uppercase' }}>Name</th>
+                  <th style={{ padding: '14px 16px', textAlign: 'left', color: colors.textMuted, fontSize: 12, fontWeight: 600, textTransform: 'uppercase' }}>Telegram</th>
+                  <th style={{ padding: '14px 16px', textAlign: 'left', color: colors.textMuted, fontSize: 12, fontWeight: 600, textTransform: 'uppercase' }}>Company</th>
+                  <th style={{ padding: '14px 16px', textAlign: 'left', color: colors.textMuted, fontSize: 12, fontWeight: 600, textTransform: 'uppercase' }}>Title</th>
+                  <th style={{ padding: '14px 16px', textAlign: 'left', color: colors.textMuted, fontSize: 12, fontWeight: 600, textTransform: 'uppercase' }}>Email</th>
+                  <th style={{ padding: '14px 16px', textAlign: 'left', color: colors.textMuted, fontSize: 12, fontWeight: 600, textTransform: 'uppercase' }}>Source</th>
+                  <th style={{ padding: '14px 16px', textAlign: 'left', color: colors.textMuted, fontSize: 12, fontWeight: 600, textTransform: 'uppercase' }}>Date</th>
+                </tr>
+              </thead>
+              <tbody>
+                {leads.map((lead, i) => (
+                  <tr key={lead.id} style={{ borderBottom: i < leads.length - 1 ? `1px solid ${colors.border}` : 'none' }}>
+                    <td style={{ padding: '14px 16px', color: colors.text, fontSize: 14 }}>{lead.full_name || '—'}</td>
+                    <td style={{ padding: '14px 16px', color: colors.primary, fontSize: 14 }}>
+                      {lead.telegram_username ? (
+                        <a href={`https://t.me/${lead.telegram_username}`} target="_blank" rel="noopener" style={{ color: colors.primary, textDecoration: 'none' }}>
+                          @{lead.telegram_username}
+                        </a>
+                      ) : (
+                        <span style={{ color: colors.textMuted }}>ID: {lead.telegram_id}</span>
+                      )}
+                    </td>
+                    <td style={{ padding: '14px 16px', color: colors.text, fontSize: 14 }}>{lead.company || '—'}</td>
+                    <td style={{ padding: '14px 16px', color: colors.text, fontSize: 14 }}>{lead.title || '—'}</td>
+                    <td style={{ padding: '14px 16px', color: colors.text, fontSize: 14 }}>{lead.email || '—'}</td>
+                    <td style={{ padding: '14px 16px', fontSize: 14 }}>
+                      <span style={{ 
+                        padding: '3px 8px', 
+                        backgroundColor: lead.source?.startsWith('event:') ? colors.primary + '20' : colors.accent + '20',
+                        color: lead.source?.startsWith('event:') ? colors.primary : colors.accent,
+                        borderRadius: 12, 
+                        fontSize: 12 
+                      }}>
+                        {lead.source || 'direct'}
+                      </span>
+                    </td>
+                    <td style={{ padding: '14px 16px', color: colors.textMuted, fontSize: 13 }}>
+                      {new Date(lead.created_at).toLocaleDateString()}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 function DashboardPage({ user, onLogout }: { user: any, onLogout: () => void }) {
   const [bots, setBots] = useState<any[]>([])
   const [newToken, setNewToken] = useState('')
   const [loading, setLoading] = useState(true)
   const [adding, setAdding] = useState(false)
+  const [selectedBot, setSelectedBot] = useState<any | null>(null)
 
   useEffect(() => {
     loadBots()
@@ -289,6 +402,30 @@ function DashboardPage({ user, onLogout }: { user: any, onLogout: () => void }) 
   }
 
   const displayName = user?.username ? `@${user.username}` : user?.first_name || user?.email
+
+  // Show leads table if a bot is selected
+  if (selectedBot) {
+    return (
+      <div style={{ minHeight: '100vh', backgroundColor: colors.bg }}>
+        <nav style={{ backgroundColor: colors.bgCard, borderBottom: `1px solid ${colors.border}`, padding: '16px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <h1 style={{ fontSize: 20, fontWeight: 700, color: colors.text }}>
+            <span style={{ color: colors.primary }}>Moongate</span> Booths
+          </h1>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+            <span style={{ color: colors.textMuted, fontSize: 14 }}>{displayName}</span>
+            <button onClick={onLogout} style={{ padding: '8px 16px', backgroundColor: 'transparent', border: `1px solid ${colors.border}`, borderRadius: 6, color: colors.text, cursor: 'pointer', fontSize: 14 }}>Logout</button>
+          </div>
+        </nav>
+        <main style={{ maxWidth: 1000, margin: '0 auto', padding: 24 }}>
+          <LeadsTable 
+            botId={selectedBot.id} 
+            botUsername={selectedBot.username} 
+            onBack={() => setSelectedBot(null)} 
+          />
+        </main>
+      </div>
+    )
+  }
 
   return (
     <div style={{ minHeight: '100vh', backgroundColor: colors.bg }}>
@@ -338,14 +475,33 @@ function DashboardPage({ user, onLogout }: { user: any, onLogout: () => void }) 
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               {bots.map(bot => (
-                <div key={bot.id} style={{ padding: 16, backgroundColor: colors.bg, borderRadius: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div 
+                  key={bot.id} 
+                  onClick={() => setSelectedBot(bot)}
+                  style={{ 
+                    padding: 16, 
+                    backgroundColor: colors.bg, 
+                    borderRadius: 8, 
+                    display: 'flex', 
+                    justifyContent: 'space-between', 
+                    alignItems: 'center',
+                    cursor: 'pointer',
+                    border: `1px solid transparent`,
+                    transition: 'border-color 0.2s',
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.borderColor = colors.border}
+                  onMouseLeave={e => e.currentTarget.style.borderColor = 'transparent'}
+                >
                   <div>
                     <div style={{ color: colors.text, fontWeight: 500 }}>@{bot.username}</div>
                     <div style={{ color: colors.textMuted, fontSize: 12, marginTop: 2 }}>
                       {bot.visitor_count || 0} leads captured
                     </div>
                   </div>
-                  <span style={{ padding: '4px 12px', backgroundColor: colors.accent + '20', color: colors.accent, borderRadius: 20, fontSize: 12 }}>Active</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <span style={{ padding: '4px 12px', backgroundColor: colors.accent + '20', color: colors.accent, borderRadius: 20, fontSize: 12 }}>Active</span>
+                    <span style={{ color: colors.textMuted, fontSize: 18 }}>→</span>
+                  </div>
                 </div>
               ))}
             </div>

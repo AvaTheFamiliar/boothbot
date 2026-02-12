@@ -9,6 +9,10 @@ export interface Bot {
   created_at: string
 }
 
+export interface BotWithStats extends Bot {
+  visitor_count: number
+}
+
 export async function createBot(data: {
   tenant_id: string
   token: string
@@ -44,6 +48,33 @@ export async function findBotsByTenantId(tenantId: string): Promise<Bot[]> {
 
   if (error) return []
   return data || []
+}
+
+// Get bots with visitor counts
+export async function findBotsWithStatsByTenantId(tenantId: string): Promise<BotWithStats[]> {
+  const { data: bots, error } = await supabase
+    .from('bb_bots')
+    .select('*')
+    .eq('tenant_id', tenantId)
+
+  if (error || !bots) return []
+
+  // Get visitor counts for each bot
+  const botsWithStats: BotWithStats[] = await Promise.all(
+    bots.map(async (bot) => {
+      const { count } = await supabase
+        .from('bb_visitors')
+        .select('*', { count: 'exact', head: true })
+        .eq('bot_id', bot.id)
+      
+      return {
+        ...bot,
+        visitor_count: count || 0
+      }
+    })
+  )
+
+  return botsWithStats
 }
 
 export async function findBotByToken(token: string): Promise<Bot | null> {

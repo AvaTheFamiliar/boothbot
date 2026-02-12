@@ -27,9 +27,13 @@ export interface UpdateVisitorData {
 }
 
 export async function createVisitor(data: CreateVisitorData): Promise<Visitor> {
+  // Use upsert to handle unique constraint on (bot_id, telegram_id)
   const { data: visitor, error } = await supabase
     .from('bb_visitors')
-    .insert(data)
+    .upsert(data, { 
+      onConflict: 'bot_id,telegram_id',
+      ignoreDuplicates: false 
+    })
     .select()
     .single()
 
