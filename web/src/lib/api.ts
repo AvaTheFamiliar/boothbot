@@ -83,6 +83,23 @@ export const api = {
 
   getLeads: (botId: string) => request<any[]>(`/api/bots/${botId}/leads`),
   
+  archiveBot: (botId: string, archived: boolean) =>
+    request<any>(`/api/bots/${botId}/archive`, {
+      method: 'PATCH',
+      body: JSON.stringify({ archived }),
+    }),
+
+  getBotAdmins: (botId: string) => request<any[]>(`/api/bots/${botId}/admins`),
+  
+  addBotAdmin: (botId: string, telegramId: number, telegramUsername?: string) =>
+    request<any>(`/api/bots/${botId}/admins`, {
+      method: 'POST',
+      body: JSON.stringify({ telegram_id: telegramId, telegram_username: telegramUsername }),
+    }),
+
+  removeBotAdmin: (botId: string, telegramId: number) =>
+    request<any>(`/api/bots/${botId}/admins/${telegramId}`, { method: 'DELETE' }),
+
   getStats: () => request<{
     totalLeads: number
     leadsByDay: { date: string; count: number }[]

@@ -3,7 +3,7 @@ import { ConversationState } from '../types'
 import { getEventStats, createEvent, findEventsByBot } from '../../db/repositories/event.repository'
 import { exportVisitorsCSV, exportAllVisitorsCSV, findVisitorsByBot, findVisitorsByEvent, getVisitorCountByBot } from '../../db/repositories/visitor.repository'
 import { createBroadcast } from '../../db/repositories/broadcast.repository'
-import { findBotById } from '../../db/repositories/bot.repository'
+import { findBotById, isBotAdmin } from '../../db/repositories/bot.repository'
 import { InputFile } from 'grammy'
 import { generateQRCode } from '../../lib/qr'
 
@@ -304,10 +304,7 @@ async function isAdmin(ctx: BotContext): Promise<boolean> {
   if (!ctx.from || !ctx.botId) return false
 
   try {
-    const bot = await findBotById(ctx.botId)
-    if (!bot || !bot.owner_telegram_id) return false
-
-    return ctx.from.id === bot.owner_telegram_id
+    return await isBotAdmin(ctx.botId, ctx.from.id)
   } catch {
     return false
   }
