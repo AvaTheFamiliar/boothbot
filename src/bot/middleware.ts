@@ -13,11 +13,11 @@ export function sessionMiddleware(botId: string) {
     ctx.session = session
     ctx.botId = botId
     
-    console.log(`[session:before] User ${ctx.from.id} state: ${session.state}, data: ${JSON.stringify(session.visitorData)}`)
+    
 
     await next()
 
-    console.log(`[session:after] User ${ctx.from.id} state: ${ctx.session.state}, data: ${JSON.stringify(ctx.session.visitorData)}`)
+    
     // Save session to DB
     await setSessionAsync(botId, ctx.from.id, ctx.session)
   }
