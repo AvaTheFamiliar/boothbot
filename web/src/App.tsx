@@ -89,7 +89,7 @@ const buttonStyle: React.CSSProperties = {
 function TelegramLoginButton({ onSuccess }: { onSuccess: (data: { token: string; tenant: any }) => void }) {
   const [status, setStatus] = useState<'idle' | 'waiting' | 'error'>('idle')
   const [error, setError] = useState('')
-  const pollingRef = useRef<NodeJS.Timeout | null>(null)
+  const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const codeRef = useRef<string | null>(null)
 
   const startLogin = async () => {
