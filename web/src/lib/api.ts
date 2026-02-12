@@ -82,6 +82,14 @@ export const api = {
     }),
 
   getLeads: (botId: string) => request<any[]>(`/api/bots/${botId}/leads`),
+  
+  getStats: () => request<{
+    totalLeads: number
+    leadsByDay: { date: string; count: number }[]
+    leadsBySource: { source: string; count: number }[]
+    leadsByBot: { botId: string; username: string; count: number }[]
+    recentLeads: any[]
+  }>('/api/stats'),
 
   getEvents: (botId: string) => request<any[]>(`/api/events?botId=${botId}`),
   

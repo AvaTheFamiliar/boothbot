@@ -7,6 +7,7 @@ import eventRoutes from './api/routes/event.routes'
 import visitorRoutes from './api/routes/visitor.routes'
 import broadcastRoutes from './api/routes/broadcast.routes'
 import webhookRoutes from './api/routes/webhook.routes'
+import statsRoutes from './api/routes/stats.routes'
 import { testConnection } from './db/client'
 import { createMasterBot } from './masterbot'
 
@@ -30,6 +31,7 @@ app.get('/health', (c) => {
 app.route('/api/auth', authRoutes)
 app.route('/api/bots', botRoutes)
 app.route('/api/events', eventRoutes)
+app.route('/api/stats', statsRoutes)
 app.route('/api', visitorRoutes)
 app.route('/api', broadcastRoutes)
 app.route('/webhook', webhookRoutes)

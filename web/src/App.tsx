@@ -9,6 +9,8 @@ const colors = {
   primary: '#FF6B35',
   primaryHover: '#FF8C42',
   accent: '#4ADE80',
+  blue: '#60A5FA',
+  purple: '#A78BFA',
   text: '#ffffff',
   textMuted: '#a0a0a0',
   border: '#2a2a2a',
@@ -61,6 +63,45 @@ function useLocalAuth() {
   return { token, user, loginWithToken, logout }
 }
 
+// Simple bar chart component
+function BarChart({ data, height = 120 }: { data: { date: string; count: number }[]; height?: number }) {
+  const maxCount = Math.max(...data.map(d => d.count), 1)
+  const barWidth = 100 / data.length
+
+  return (
+    <div style={{ position: 'relative', height, width: '100%' }}>
+      <svg width="100%" height={height} style={{ overflow: 'visible' }}>
+        {data.map((d, i) => {
+          const barHeight = (d.count / maxCount) * (height - 20)
+          return (
+            <g key={d.date}>
+              <rect
+                x={`${i * barWidth + barWidth * 0.1}%`}
+                y={height - 20 - barHeight}
+                width={`${barWidth * 0.8}%`}
+                height={barHeight}
+                fill={d.count > 0 ? colors.primary : colors.border}
+                rx="2"
+              />
+              {i % 7 === 0 && (
+                <text
+                  x={`${i * barWidth + barWidth * 0.5}%`}
+                  y={height - 4}
+                  textAnchor="middle"
+                  fill={colors.textMuted}
+                  fontSize="10"
+                >
+                  {d.date.slice(5)}
+                </text>
+              )}
+            </g>
+          )
+        })}
+      </svg>
+    </div>
+  )
+}
+
 // Telegram Deep Link Login Button
 function TelegramLoginButton({ onSuccess }: { onSuccess: (data: { token: string; tenant: any }) => void }) {
   const [status, setStatus] = useState<'idle' | 'waiting' | 'error'>('idle')
@@ -81,11 +122,8 @@ function TelegramLoginButton({ onSuccess }: { onSuccess: (data: { token: string;
       }
       
       const { code, deepLink } = result.data
-      
-      // Open Telegram deep link
       window.open(deepLink, '_blank')
       
-      // Start polling for approval
       let attempts = 0
       const maxAttempts = 60
       
@@ -122,18 +160,14 @@ function TelegramLoginButton({ onSuccess }: { onSuccess: (data: { token: string;
   }
 
   const cancelLogin = () => {
-    if (pollingRef.current) {
-      clearInterval(pollingRef.current)
-    }
+    if (pollingRef.current) clearInterval(pollingRef.current)
     setStatus('idle')
     setError('')
   }
 
   useEffect(() => {
     return () => {
-      if (pollingRef.current) {
-        clearInterval(pollingRef.current)
-      }
+      if (pollingRef.current) clearInterval(pollingRef.current)
     }
   }, [])
 
@@ -149,8 +183,7 @@ function TelegramLoginButton({ onSuccess }: { onSuccess: (data: { token: string;
         }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, marginBottom: 12 }}>
             <div style={{
-              width: 20,
-              height: 20,
+              width: 20, height: 20,
               border: `3px solid ${colors.telegram}40`,
               borderTopColor: colors.telegram,
               borderRadius: '50%',
@@ -162,25 +195,10 @@ function TelegramLoginButton({ onSuccess }: { onSuccess: (data: { token: string;
             Tap <b>Approve</b> in the Telegram app to continue
           </p>
         </div>
-        <button 
-          onClick={cancelLogin}
-          style={{ 
-            padding: '10px 20px', 
-            backgroundColor: 'transparent', 
-            border: `1px solid ${colors.border}`, 
-            borderRadius: 8, 
-            color: colors.textMuted, 
-            cursor: 'pointer', 
-            fontSize: 14 
-          }}
-        >
+        <button onClick={cancelLogin} style={{ padding: '10px 20px', backgroundColor: 'transparent', border: `1px solid ${colors.border}`, borderRadius: 8, color: colors.textMuted, cursor: 'pointer', fontSize: 14 }}>
           Cancel
         </button>
-        <style>{`
-          @keyframes spin {
-            to { transform: rotate(360deg); }
-          }
-        `}</style>
+        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
       </div>
     )
   }
@@ -188,36 +206,15 @@ function TelegramLoginButton({ onSuccess }: { onSuccess: (data: { token: string;
   return (
     <div>
       {error && (
-        <div style={{ 
-          padding: 12, 
-          backgroundColor: '#3f1f1f', 
-          color: '#ff6b6b', 
-          borderRadius: 8, 
-          marginBottom: 16, 
-          fontSize: 14,
-          textAlign: 'center'
-        }}>
+        <div style={{ padding: 12, backgroundColor: '#3f1f1f', color: '#ff6b6b', borderRadius: 8, marginBottom: 16, fontSize: 14, textAlign: 'center' }}>
           {error}
         </div>
       )}
-      <button
-        onClick={startLogin}
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          gap: 12,
-          width: '100%',
-          padding: '16px 24px',
-          backgroundColor: colors.telegram,
-          color: 'white',
-          border: 'none',
-          borderRadius: 12,
-          fontSize: 16,
-          fontWeight: 600,
-          cursor: 'pointer',
-        }}
-      >
+      <button onClick={startLogin} style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12,
+        width: '100%', padding: '16px 24px', backgroundColor: colors.telegram,
+        color: 'white', border: 'none', borderRadius: 12, fontSize: 16, fontWeight: 600, cursor: 'pointer',
+      }}>
         <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
           <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.562 8.161c-.18 1.897-.962 6.502-1.359 8.627-.168.9-.5 1.201-.82 1.23-.697.064-1.226-.461-1.901-.903-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.139-5.062 3.345-.479.329-.913.489-1.302.481-.428-.009-1.252-.242-1.865-.442-.752-.244-1.349-.374-1.297-.789.027-.216.324-.437.893-.663 3.498-1.524 5.831-2.529 6.998-3.015 3.333-1.386 4.025-1.627 4.477-1.635.099-.002.321.023.465.141.121.099.154.232.17.325.015.094.034.31.019.478z"/>
         </svg>
@@ -246,9 +243,7 @@ function LoginPage({ onLoginWithToken }: { onLoginWithToken: (data: { token: str
             Turn booth visitors into qualified leads<br />with your own Telegram bot
           </p>
         </div>
-
         <TelegramLoginButton onSuccess={handleTelegramSuccess} />
-        
         <div style={{ marginTop: 32, padding: 16, backgroundColor: colors.bg, borderRadius: 10, textAlign: 'center' }}>
           <p style={{ color: colors.accent, fontSize: 14, fontWeight: 500, marginBottom: 4 }}>🎁 Free for your first 25 leads</p>
           <p style={{ color: colors.textMuted, fontSize: 13 }}>Then $100/mo per 1,000 leads captured</p>
@@ -274,9 +269,7 @@ function LeadsTable({ botId, botUsername, onBack }: { botId: string; botUsername
   const [leads, setLeads] = useState<Lead[]>([])
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    loadLeads()
-  }, [botId])
+  useEffect(() => { loadLeads() }, [botId])
 
   const loadLeads = async () => {
     setLoading(true)
@@ -288,23 +281,10 @@ function LeadsTable({ botId, botUsername, onBack }: { botId: string; botUsername
   return (
     <div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 24 }}>
-        <button 
-          onClick={onBack}
-          style={{ 
-            padding: '8px 16px', 
-            backgroundColor: 'transparent', 
-            border: `1px solid ${colors.border}`, 
-            borderRadius: 6, 
-            color: colors.text, 
-            cursor: 'pointer', 
-            fontSize: 14 
-          }}
-        >
+        <button onClick={onBack} style={{ padding: '8px 16px', backgroundColor: 'transparent', border: `1px solid ${colors.border}`, borderRadius: 6, color: colors.text, cursor: 'pointer', fontSize: 14 }}>
           ← Back
         </button>
-        <h2 style={{ color: colors.text, fontSize: 20, margin: 0 }}>
-          Leads for @{botUsername}
-        </h2>
+        <h2 style={{ color: colors.text, fontSize: 20, margin: 0 }}>Leads for @{botUsername}</h2>
         <span style={{ color: colors.textMuted, fontSize: 14 }}>({leads.length} total)</span>
       </div>
 
@@ -313,9 +293,7 @@ function LeadsTable({ botId, botUsername, onBack }: { botId: string; botUsername
       ) : leads.length === 0 ? (
         <div style={{ textAlign: 'center', padding: 40, backgroundColor: colors.bgCard, borderRadius: 12, border: `1px solid ${colors.border}` }}>
           <p style={{ color: colors.textMuted, fontSize: 16 }}>No leads yet</p>
-          <p style={{ color: colors.textMuted, fontSize: 14, marginTop: 8 }}>
-            Share your bot link or QR code to start capturing leads
-          </p>
+          <p style={{ color: colors.textMuted, fontSize: 14, marginTop: 8 }}>Share your bot link or QR code to start capturing leads</p>
         </div>
       ) : (
         <div style={{ backgroundColor: colors.bgCard, borderRadius: 12, border: `1px solid ${colors.border}`, overflow: 'hidden' }}>
@@ -323,13 +301,9 @@ function LeadsTable({ botId, botUsername, onBack }: { botId: string; botUsername
             <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 700 }}>
               <thead>
                 <tr style={{ borderBottom: `1px solid ${colors.border}` }}>
-                  <th style={{ padding: '14px 16px', textAlign: 'left', color: colors.textMuted, fontSize: 12, fontWeight: 600, textTransform: 'uppercase' }}>Name</th>
-                  <th style={{ padding: '14px 16px', textAlign: 'left', color: colors.textMuted, fontSize: 12, fontWeight: 600, textTransform: 'uppercase' }}>Telegram</th>
-                  <th style={{ padding: '14px 16px', textAlign: 'left', color: colors.textMuted, fontSize: 12, fontWeight: 600, textTransform: 'uppercase' }}>Company</th>
-                  <th style={{ padding: '14px 16px', textAlign: 'left', color: colors.textMuted, fontSize: 12, fontWeight: 600, textTransform: 'uppercase' }}>Title</th>
-                  <th style={{ padding: '14px 16px', textAlign: 'left', color: colors.textMuted, fontSize: 12, fontWeight: 600, textTransform: 'uppercase' }}>Email</th>
-                  <th style={{ padding: '14px 16px', textAlign: 'left', color: colors.textMuted, fontSize: 12, fontWeight: 600, textTransform: 'uppercase' }}>Source</th>
-                  <th style={{ padding: '14px 16px', textAlign: 'left', color: colors.textMuted, fontSize: 12, fontWeight: 600, textTransform: 'uppercase' }}>Date</th>
+                  {['Name', 'Telegram', 'Company', 'Title', 'Email', 'Source', 'Date'].map(h => (
+                    <th key={h} style={{ padding: '14px 16px', textAlign: 'left', color: colors.textMuted, fontSize: 12, fontWeight: 600, textTransform: 'uppercase' }}>{h}</th>
+                  ))}
                 </tr>
               </thead>
               <tbody>
@@ -338,12 +312,8 @@ function LeadsTable({ botId, botUsername, onBack }: { botId: string; botUsername
                     <td style={{ padding: '14px 16px', color: colors.text, fontSize: 14 }}>{lead.full_name || '—'}</td>
                     <td style={{ padding: '14px 16px', color: colors.primary, fontSize: 14 }}>
                       {lead.telegram_username ? (
-                        <a href={`https://t.me/${lead.telegram_username}`} target="_blank" rel="noopener" style={{ color: colors.primary, textDecoration: 'none' }}>
-                          @{lead.telegram_username}
-                        </a>
-                      ) : (
-                        <span style={{ color: colors.textMuted }}>ID: {lead.telegram_id}</span>
-                      )}
+                        <a href={`https://t.me/${lead.telegram_username}`} target="_blank" rel="noopener" style={{ color: colors.primary, textDecoration: 'none' }}>@{lead.telegram_username}</a>
+                      ) : <span style={{ color: colors.textMuted }}>ID: {lead.telegram_id}</span>}
                     </td>
                     <td style={{ padding: '14px 16px', color: colors.text, fontSize: 14 }}>{lead.company || '—'}</td>
                     <td style={{ padding: '14px 16px', color: colors.text, fontSize: 14 }}>{lead.title || '—'}</td>
@@ -353,15 +323,10 @@ function LeadsTable({ botId, botUsername, onBack }: { botId: string; botUsername
                         padding: '3px 8px', 
                         backgroundColor: lead.source?.startsWith('event:') ? colors.primary + '20' : colors.accent + '20',
                         color: lead.source?.startsWith('event:') ? colors.primary : colors.accent,
-                        borderRadius: 12, 
-                        fontSize: 12 
-                      }}>
-                        {lead.source || 'direct'}
-                      </span>
+                        borderRadius: 12, fontSize: 12 
+                      }}>{lead.source || 'direct'}</span>
                     </td>
-                    <td style={{ padding: '14px 16px', color: colors.textMuted, fontSize: 13 }}>
-                      {new Date(lead.created_at).toLocaleDateString()}
-                    </td>
+                    <td style={{ padding: '14px 16px', color: colors.textMuted, fontSize: 13 }}>{new Date(lead.created_at).toLocaleDateString()}</td>
                   </tr>
                 ))}
               </tbody>
@@ -373,20 +338,44 @@ function LeadsTable({ botId, botUsername, onBack }: { botId: string; botUsername
   )
 }
 
-function DashboardPage({ user, onLogout }: { user: any, onLogout: () => void }) {
+interface Stats {
+  totalLeads: number
+  leadsByDay: { date: string; count: number }[]
+  leadsBySource: { source: string; count: number }[]
+  leadsByBot: { botId: string; username: string; count: number }[]
+  recentLeads: any[]
+}
+
+function StatCard({ label, value, color = colors.text, icon }: { label: string; value: string | number; color?: string; icon?: string }) {
+  return (
+    <div style={{ backgroundColor: colors.bgCard, border: `1px solid ${colors.border}`, borderRadius: 12, padding: 20, flex: 1, minWidth: 140 }}>
+      <div style={{ fontSize: 13, color: colors.textMuted, marginBottom: 8 }}>{icon} {label}</div>
+      <div style={{ fontSize: 28, fontWeight: 700, color }}>{value}</div>
+    </div>
+  )
+}
+
+function DashboardPage({ user, onLogout }: { user: any; onLogout: () => void }) {
+  const [view, setView] = useState<'overview' | 'bots'>('overview')
   const [bots, setBots] = useState<any[]>([])
+  const [stats, setStats] = useState<Stats | null>(null)
   const [newToken, setNewToken] = useState('')
   const [loading, setLoading] = useState(true)
   const [adding, setAdding] = useState(false)
   const [selectedBot, setSelectedBot] = useState<any | null>(null)
 
   useEffect(() => {
-    loadBots()
+    loadData()
   }, [])
 
-  const loadBots = async () => {
-    const result = await api.getBots()
-    if (result.data) setBots(result.data)
+  const loadData = async () => {
+    setLoading(true)
+    const [botsResult, statsResult] = await Promise.all([
+      api.getBots(),
+      api.getStats()
+    ])
+    if (botsResult.data) setBots(botsResult.data)
+    if (statsResult.data) setStats(statsResult.data)
     setLoading(false)
   }
 
@@ -398,116 +387,182 @@ function DashboardPage({ user, onLogout }: { user: any, onLogout: () => void }) 
     if (result.data) {
       setBots([...bots, result.data])
       setNewToken('')
+      loadData() // Refresh stats
     }
   }
 
   const displayName = user?.username ? `@${user.username}` : user?.first_name || user?.email
 
-  // Show leads table if a bot is selected
+  // Leads table view
   if (selectedBot) {
     return (
       <div style={{ minHeight: '100vh', backgroundColor: colors.bg }}>
         <nav style={{ backgroundColor: colors.bgCard, borderBottom: `1px solid ${colors.border}`, padding: '16px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <h1 style={{ fontSize: 20, fontWeight: 700, color: colors.text }}>
-            <span style={{ color: colors.primary }}>Moongate</span> Booths
-          </h1>
+          <h1 style={{ fontSize: 20, fontWeight: 700, color: colors.text }}><span style={{ color: colors.primary }}>Moongate</span> Booths</h1>
           <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
             <span style={{ color: colors.textMuted, fontSize: 14 }}>{displayName}</span>
             <button onClick={onLogout} style={{ padding: '8px 16px', backgroundColor: 'transparent', border: `1px solid ${colors.border}`, borderRadius: 6, color: colors.text, cursor: 'pointer', fontSize: 14 }}>Logout</button>
           </div>
         </nav>
         <main style={{ maxWidth: 1000, margin: '0 auto', padding: 24 }}>
-          <LeadsTable 
-            botId={selectedBot.id} 
-            botUsername={selectedBot.username} 
-            onBack={() => setSelectedBot(null)} 
-          />
+          <LeadsTable botId={selectedBot.id} botUsername={selectedBot.username} onBack={() => setSelectedBot(null)} />
         </main>
       </div>
     )
   }
 
+  const thisWeekLeads = stats?.leadsByDay.slice(-7).reduce((sum, d) => sum + d.count, 0) || 0
+  const directLeads = stats?.leadsBySource.find(s => s.source === 'direct')?.count || 0
+  const eventLeads = stats?.leadsBySource.find(s => s.source === 'event')?.count || 0
+
   return (
     <div style={{ minHeight: '100vh', backgroundColor: colors.bg }}>
       <nav style={{ backgroundColor: colors.bgCard, borderBottom: `1px solid ${colors.border}`, padding: '16px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <h1 style={{ fontSize: 20, fontWeight: 700, color: colors.text }}>
-          <span style={{ color: colors.primary }}>Moongate</span> Booths
-        </h1>
+        <h1 style={{ fontSize: 20, fontWeight: 700, color: colors.text }}><span style={{ color: colors.primary }}>Moongate</span> Booths</h1>
         <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
           <span style={{ color: colors.textMuted, fontSize: 14 }}>{displayName}</span>
           <button onClick={onLogout} style={{ padding: '8px 16px', backgroundColor: 'transparent', border: `1px solid ${colors.border}`, borderRadius: 6, color: colors.text, cursor: 'pointer', fontSize: 14 }}>Logout</button>
         </div>
       </nav>
 
-      <main style={{ maxWidth: 800, margin: '0 auto', padding: 24 }}>
-        {/* Quick Start */}
-        <div style={{ backgroundColor: colors.bgCard, border: `1px solid ${colors.border}`, borderRadius: 12, padding: 24, marginBottom: 24 }}>
-          <h2 style={{ color: colors.text, fontSize: 18, marginBottom: 8 }}>Connect Your Bot</h2>
-          <p style={{ color: colors.textMuted, fontSize: 14, marginBottom: 16 }}>
-            Create a bot via <a href="https://t.me/BotFather" target="_blank" rel="noopener" style={{ color: colors.primary }}>@BotFather</a> and paste the token below
-          </p>
-          <div style={{ display: 'flex', gap: 12 }}>
-            <input
-              type="text"
-              placeholder="123456789:ABCdefGHIjklMNOpqrsTUVwxyz"
-              value={newToken}
-              onChange={e => setNewToken(e.target.value)}
-              style={{ ...inputStyle, flex: 1, fontFamily: 'monospace', fontSize: 13 }}
-            />
-            <button onClick={addBot} disabled={adding || !newToken} style={{ ...buttonStyle, width: 'auto', padding: '12px 32px', opacity: adding || !newToken ? 0.6 : 1 }}>
-              {adding ? 'Adding...' : 'Add Bot'}
+      <main style={{ maxWidth: 1000, margin: '0 auto', padding: 24 }}>
+        {/* Tabs */}
+        <div style={{ display: 'flex', gap: 8, marginBottom: 24 }}>
+          {(['overview', 'bots'] as const).map(tab => (
+            <button
+              key={tab}
+              onClick={() => setView(tab)}
+              style={{
+                padding: '10px 20px',
+                backgroundColor: view === tab ? colors.primary : 'transparent',
+                border: `1px solid ${view === tab ? colors.primary : colors.border}`,
+                borderRadius: 8,
+                color: colors.text,
+                cursor: 'pointer',
+                fontSize: 14,
+                fontWeight: view === tab ? 600 : 400,
+                textTransform: 'capitalize'
+              }}
+            >
+              {tab === 'overview' ? '📊 Overview' : '🤖 Bots'}
             </button>
-          </div>
+          ))}
         </div>
 
-        {/* Bots List */}
-        <div style={{ backgroundColor: colors.bgCard, border: `1px solid ${colors.border}`, borderRadius: 12, padding: 24 }}>
-          <h2 style={{ color: colors.text, fontSize: 18, marginBottom: 16 }}>Your Bots</h2>
-          {loading ? (
-            <p style={{ color: colors.textMuted }}>Loading...</p>
-          ) : bots.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '24px 0' }}>
-              <p style={{ color: colors.textMuted, marginBottom: 16 }}>No bots connected yet</p>
-              <p style={{ color: colors.textMuted, fontSize: 13 }}>
-                Or try our demo: <a href="https://t.me/MoongateEventBot" target="_blank" rel="noopener" style={{ color: colors.primary }}>@MoongateEventBot</a>
+        {loading ? (
+          <p style={{ color: colors.textMuted }}>Loading...</p>
+        ) : view === 'overview' ? (
+          <>
+            {/* Stats Cards */}
+            <div style={{ display: 'flex', gap: 16, marginBottom: 24, flexWrap: 'wrap' }}>
+              <StatCard label="Total Leads" value={stats?.totalLeads || 0} color={colors.primary} icon="👥" />
+              <StatCard label="This Week" value={thisWeekLeads} color={colors.accent} icon="📈" />
+              <StatCard label="Direct" value={directLeads} color={colors.blue} icon="🔗" />
+              <StatCard label="From Events" value={eventLeads} color={colors.purple} icon="🎪" />
+            </div>
+
+            {/* Chart */}
+            <div style={{ backgroundColor: colors.bgCard, border: `1px solid ${colors.border}`, borderRadius: 12, padding: 24, marginBottom: 24 }}>
+              <h3 style={{ color: colors.text, fontSize: 16, marginBottom: 16, fontWeight: 600 }}>📊 Leads (Last 30 Days)</h3>
+              {stats && stats.leadsByDay.length > 0 ? (
+                <BarChart data={stats.leadsByDay} height={140} />
+              ) : (
+                <p style={{ color: colors.textMuted, textAlign: 'center', padding: 20 }}>No data yet</p>
+              )}
+            </div>
+
+            {/* Two columns */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 24 }}>
+              {/* Leads by Bot */}
+              <div style={{ backgroundColor: colors.bgCard, border: `1px solid ${colors.border}`, borderRadius: 12, padding: 24 }}>
+                <h3 style={{ color: colors.text, fontSize: 16, marginBottom: 16, fontWeight: 600 }}>🤖 Leads by Bot</h3>
+                {stats?.leadsByBot.length ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                    {stats.leadsByBot.map(bot => (
+                      <div key={bot.botId} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ color: colors.text }}>@{bot.username}</span>
+                        <span style={{ color: colors.primary, fontWeight: 600 }}>{bot.count}</span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p style={{ color: colors.textMuted }}>No bots connected</p>
+                )}
+              </div>
+
+              {/* Recent Leads */}
+              <div style={{ backgroundColor: colors.bgCard, border: `1px solid ${colors.border}`, borderRadius: 12, padding: 24 }}>
+                <h3 style={{ color: colors.text, fontSize: 16, marginBottom: 16, fontWeight: 600 }}>🕐 Recent Leads</h3>
+                {stats?.recentLeads.length ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                    {stats.recentLeads.slice(0, 5).map(lead => (
+                      <div key={lead.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div>
+                          <div style={{ color: colors.text, fontSize: 14 }}>{lead.full_name || lead.telegram_username || 'Anonymous'}</div>
+                          <div style={{ color: colors.textMuted, fontSize: 12 }}>@{lead.bot_username}</div>
+                        </div>
+                        <span style={{ color: colors.textMuted, fontSize: 12 }}>{new Date(lead.created_at).toLocaleDateString()}</span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p style={{ color: colors.textMuted }}>No leads yet</p>
+                )}
+              </div>
+            </div>
+          </>
+        ) : (
+          <>
+            {/* Add Bot */}
+            <div style={{ backgroundColor: colors.bgCard, border: `1px solid ${colors.border}`, borderRadius: 12, padding: 24, marginBottom: 24 }}>
+              <h2 style={{ color: colors.text, fontSize: 18, marginBottom: 8 }}>Connect Your Bot</h2>
+              <p style={{ color: colors.textMuted, fontSize: 14, marginBottom: 16 }}>
+                Create a bot via <a href="https://t.me/BotFather" target="_blank" rel="noopener" style={{ color: colors.primary }}>@BotFather</a> and paste the token below
               </p>
+              <div style={{ display: 'flex', gap: 12 }}>
+                <input type="text" placeholder="123456789:ABCdefGHIjklMNOpqrsTUVwxyz" value={newToken} onChange={e => setNewToken(e.target.value)} style={{ ...inputStyle, flex: 1, fontFamily: 'monospace', fontSize: 13 }} />
+                <button onClick={addBot} disabled={adding || !newToken} style={{ ...buttonStyle, width: 'auto', padding: '12px 32px', opacity: adding || !newToken ? 0.6 : 1 }}>
+                  {adding ? 'Adding...' : 'Add Bot'}
+                </button>
+              </div>
             </div>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              {bots.map(bot => (
-                <div 
-                  key={bot.id} 
-                  onClick={() => setSelectedBot(bot)}
-                  style={{ 
-                    padding: 16, 
-                    backgroundColor: colors.bg, 
-                    borderRadius: 8, 
-                    display: 'flex', 
-                    justifyContent: 'space-between', 
-                    alignItems: 'center',
-                    cursor: 'pointer',
-                    border: `1px solid transparent`,
-                    transition: 'border-color 0.2s',
-                  }}
-                  onMouseEnter={e => e.currentTarget.style.borderColor = colors.border}
-                  onMouseLeave={e => e.currentTarget.style.borderColor = 'transparent'}
-                >
-                  <div>
-                    <div style={{ color: colors.text, fontWeight: 500 }}>@{bot.username}</div>
-                    <div style={{ color: colors.textMuted, fontSize: 12, marginTop: 2 }}>
-                      {bot.visitor_count || 0} leads captured
-                    </div>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                    <span style={{ padding: '4px 12px', backgroundColor: colors.accent + '20', color: colors.accent, borderRadius: 20, fontSize: 12 }}>Active</span>
-                    <span style={{ color: colors.textMuted, fontSize: 18 }}>→</span>
-                  </div>
+
+            {/* Bots List */}
+            <div style={{ backgroundColor: colors.bgCard, border: `1px solid ${colors.border}`, borderRadius: 12, padding: 24 }}>
+              <h2 style={{ color: colors.text, fontSize: 18, marginBottom: 16 }}>Your Bots</h2>
+              {bots.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '24px 0' }}>
+                  <p style={{ color: colors.textMuted, marginBottom: 16 }}>No bots connected yet</p>
+                  <p style={{ color: colors.textMuted, fontSize: 13 }}>
+                    Or try our demo: <a href="https://t.me/MoongateEventBot" target="_blank" rel="noopener" style={{ color: colors.primary }}>@MoongateEventBot</a>
+                  </p>
                 </div>
-              ))}
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  {bots.map(bot => (
+                    <div 
+                      key={bot.id} 
+                      onClick={() => setSelectedBot(bot)}
+                      style={{ padding: 16, backgroundColor: colors.bg, borderRadius: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', border: `1px solid transparent`, transition: 'border-color 0.2s' }}
+                      onMouseEnter={e => e.currentTarget.style.borderColor = colors.border}
+                      onMouseLeave={e => e.currentTarget.style.borderColor = 'transparent'}
+                    >
+                      <div>
+                        <div style={{ color: colors.text, fontWeight: 500 }}>@{bot.username}</div>
+                        <div style={{ color: colors.textMuted, fontSize: 12, marginTop: 2 }}>{bot.visitor_count || 0} leads captured</div>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                        <span style={{ padding: '4px 12px', backgroundColor: colors.accent + '20', color: colors.accent, borderRadius: 20, fontSize: 12 }}>Active</span>
+                        <span style={{ color: colors.textMuted, fontSize: 18 }}>→</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
-          )}
-        </div>
-        
+          </>
+        )}
+
         {/* Pricing Note */}
         <div style={{ marginTop: 24, padding: 16, backgroundColor: colors.bg, borderRadius: 8, border: `1px solid ${colors.border}` }}>
           <p style={{ color: colors.textMuted, fontSize: 13, textAlign: 'center' }}>
