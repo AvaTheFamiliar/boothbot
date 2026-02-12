@@ -60,6 +60,7 @@ export function createBotInstance(token: string, botId: string): Bot<BotContext>
   bot.callbackQuery('back_to_confirm', handleBackToConfirm())
 
   bot.on('message:text', async (ctx: BotContext, next) => {
+    console.log(`[message] User ${ctx.from?.id} text: "${ctx.message?.text?.slice(0,30)}" state: ${ctx.session.state}`)
     switch (ctx.session.state) {
       case ConversationState.COLLECTING_NAME:
         return handleNameInput()(ctx)

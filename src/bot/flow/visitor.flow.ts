@@ -100,6 +100,7 @@ export function handleCompanyInput() {
 
 export function handleTitleInput() {
   return async (ctx: BotContext) => {
+    console.log(`[titleInput] User ${ctx.from?.id} state: ${ctx.session.state}`)
     if (ctx.session.state !== ConversationState.COLLECTING_TITLE) return
 
     const title = ctx.message?.text?.trim()
@@ -108,6 +109,7 @@ export function handleTitleInput() {
     }
 
     ctx.session.state = ConversationState.COLLECTING_EMAIL
+    console.log(`[titleInput] Set state to COLLECTING_EMAIL`)
     await ctx.reply(
       `<b>What's your email?</b>\n\n<i>We'll use this for follow-ups and important updates.</i>`,
       { parse_mode: 'HTML', reply_markup: getSkipKeyboard('email') }
@@ -117,7 +119,11 @@ export function handleTitleInput() {
 
 export function handleEmailInput() {
   return async (ctx: BotContext) => {
-    if (ctx.session.state !== ConversationState.COLLECTING_EMAIL) return
+    console.log(`[emailInput] User ${ctx.from?.id} state: ${ctx.session.state}, expected: ${ConversationState.COLLECTING_EMAIL}`)
+    if (ctx.session.state !== ConversationState.COLLECTING_EMAIL) {
+      console.log(`[emailInput] Skipping - wrong state`)
+      return
+    }
 
     const email = ctx.message?.text?.trim()
     if (email && !isValidEmail(email)) {
