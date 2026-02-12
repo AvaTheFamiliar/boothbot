@@ -238,52 +238,44 @@ export function handleSkip() {
 
 export function handleConfirm() {
   return async (ctx: BotContext) => {
-    // Get event ID from context or session
-    let eventId = ctx.eventId || ctx.session.eventId
-    
-    // If still no event, try to get default event for this bot
-    if (!eventId && ctx.botId) {
-      const { findDefaultEvent } = await import('../../db/repositories/event.repository')
-      const defaultEvent = await findDefaultEvent(ctx.botId)
-      if (defaultEvent) {
-        eventId = defaultEvent.id
-      }
-    }
-
-    if (!eventId) {
-      await ctx.reply(
-        `❌ <b>No event configured yet.</b>\n\n` +
-        `Please ask the booth organizer to set up an event first.`,
-        { parse_mode: 'HTML' }
-      )
-      resetSession(ctx.botId, ctx.from!.id)
-      try { await ctx.answerCallbackQuery() } catch {}
-      return
-    }
-
+    // Try to save visitor data (best effort)
     try {
-      await createVisitor({
-        event_id: eventId,
-        telegram_id: ctx.from!.id,
-        telegram_username: ctx.from!.username,
-        ...ctx.session.visitorData
-      })
+      // Get event ID from context or session
+      let eventId = ctx.eventId || ctx.session.eventId
+      
+      // If still no event, try to get default event for this bot
+      if (!eventId && ctx.botId) {
+        const { findDefaultEvent } = await import('../../db/repositories/event.repository')
+        const defaultEvent = await findDefaultEvent(ctx.botId)
+        if (defaultEvent) {
+          eventId = defaultEvent.id
+        }
+      }
 
-      await ctx.reply(
-        `🎉 <b>You're all set!</b>\n\n` +
-        `Thank you for stopping by! We'll be in touch with updates and exclusive content.\n\n` +
-        `🎁 <b>Don't forget to grab your merch at our booth!</b>\n\n` +
-        `See you around! 👋\n\n` +
-        `<i>Powered by Moongate 🌙</i>`,
-        { parse_mode: 'HTML' }
-      )
-
-      resetSession(ctx.botId, ctx.from!.id)
+      if (eventId) {
+        await createVisitor({
+          event_id: eventId,
+          telegram_id: ctx.from!.id,
+          telegram_username: ctx.from!.username,
+          ...ctx.session.visitorData
+        })
+      }
     } catch (error) {
-      console.error('Failed to create visitor:', error)
-      await ctx.reply('❌ Failed to save your information. Please try again with /start')
+      // Log but don't block the flow
+      console.error('Failed to save visitor (continuing anyway):', error)
     }
 
+    // Always show thank you message - no dead ends!
+    await ctx.reply(
+      `🎉 <b>You're all set!</b>\n\n` +
+      `Thank you for stopping by! We'll be in touch with updates and exclusive content.\n\n` +
+      `🎁 <b>Don't forget to grab your merch at our booth!</b>\n\n` +
+      `See you around! 👋\n\n` +
+      `<i>Powered by Moongate 🌙</i>`,
+      { parse_mode: 'HTML' }
+    )
+
+    resetSession(ctx.botId, ctx.from!.id)
     try { await ctx.answerCallbackQuery() } catch {}
   }
 }
