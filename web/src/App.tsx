@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { BrowserRouter, Routes, Route, Link, useNavigate } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, useNavigate } from 'react-router-dom'
 import { api } from './lib/api'
 
 // Moongate color palette
@@ -13,53 +13,6 @@ const colors = {
   textMuted: '#a0a0a0',
   border: '#2a2a2a',
   telegram: '#2AABEE',
-}
-
-function useLocalAuth() {
-  const [token, setToken] = useState<string | null>(localStorage.getItem('token'))
-  const [user, setUser] = useState<any>(
-    localStorage.getItem('user') ? JSON.parse(localStorage.getItem('user')!) : null
-  )
-
-  const login = async (email: string, password: string) => {
-    const result = await api.login(email, password)
-    if (result.data) {
-      localStorage.setItem('token', result.data.token)
-      localStorage.setItem('user', JSON.stringify(result.data.tenant))
-      setToken(result.data.token)
-      setUser(result.data.tenant)
-      return { success: true }
-    }
-    return { success: false, error: result.error }
-  }
-
-  const loginWithToken = (data: { token: string; tenant: any }) => {
-    localStorage.setItem('token', data.token)
-    localStorage.setItem('user', JSON.stringify(data.tenant))
-    setToken(data.token)
-    setUser(data.tenant)
-  }
-
-  const register = async (email: string, password: string) => {
-    const result = await api.register(email, password)
-    if (result.data) {
-      localStorage.setItem('token', result.data.token)
-      localStorage.setItem('user', JSON.stringify(result.data.tenant))
-      setToken(result.data.token)
-      setUser(result.data.tenant)
-      return { success: true }
-    }
-    return { success: false, error: result.error }
-  }
-
-  const logout = () => {
-    localStorage.removeItem('token')
-    localStorage.removeItem('user')
-    setToken(null)
-    setUser(null)
-  }
-
-  return { token, user, login, loginWithToken, register, logout }
 }
 
 const inputStyle: React.CSSProperties = {
@@ -85,12 +38,34 @@ const buttonStyle: React.CSSProperties = {
   width: '100%',
 }
 
+function useLocalAuth() {
+  const [token, setToken] = useState<string | null>(localStorage.getItem('token'))
+  const [user, setUser] = useState<any>(
+    localStorage.getItem('user') ? JSON.parse(localStorage.getItem('user')!) : null
+  )
+
+  const loginWithToken = (data: { token: string; tenant: any }) => {
+    localStorage.setItem('token', data.token)
+    localStorage.setItem('user', JSON.stringify(data.tenant))
+    setToken(data.token)
+    setUser(data.tenant)
+  }
+
+  const logout = () => {
+    localStorage.removeItem('token')
+    localStorage.removeItem('user')
+    setToken(null)
+    setUser(null)
+  }
+
+  return { token, user, loginWithToken, logout }
+}
+
 // Telegram Deep Link Login Button
 function TelegramLoginButton({ onSuccess }: { onSuccess: (data: { token: string; tenant: any }) => void }) {
   const [status, setStatus] = useState<'idle' | 'waiting' | 'error'>('idle')
   const [error, setError] = useState('')
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null)
-  const codeRef = useRef<string | null>(null)
 
   const startLogin = async () => {
     setStatus('waiting')
@@ -106,7 +81,6 @@ function TelegramLoginButton({ onSuccess }: { onSuccess: (data: { token: string;
       }
       
       const { code, deepLink } = result.data
-      codeRef.current = code
       
       // Open Telegram deep link
       window.open(deepLink, '_blank')
@@ -168,37 +142,37 @@ function TelegramLoginButton({ onSuccess }: { onSuccess: (data: { token: string;
     return (
       <div style={{ textAlign: 'center' }}>
         <div style={{ 
-          padding: '16px 24px', 
+          padding: '20px 24px', 
           backgroundColor: colors.telegram + '15', 
-          borderRadius: 8,
+          borderRadius: 12,
           border: `1px solid ${colors.telegram}30`,
-          marginBottom: 12
+          marginBottom: 16
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginBottom: 8 }}>
-            <div className="spinner" style={{
-              width: 16,
-              height: 16,
-              border: `2px solid ${colors.telegram}40`,
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, marginBottom: 12 }}>
+            <div style={{
+              width: 20,
+              height: 20,
+              border: `3px solid ${colors.telegram}40`,
               borderTopColor: colors.telegram,
               borderRadius: '50%',
               animation: 'spin 1s linear infinite'
             }} />
-            <span style={{ color: colors.telegram, fontWeight: 500 }}>Waiting for Telegram...</span>
+            <span style={{ color: colors.telegram, fontWeight: 600, fontSize: 16 }}>Waiting for Telegram...</span>
           </div>
-          <p style={{ color: colors.textMuted, fontSize: 13, margin: 0 }}>
-            Approve the login request in Telegram
+          <p style={{ color: colors.textMuted, fontSize: 14, margin: 0 }}>
+            Tap <b>Approve</b> in the Telegram app to continue
           </p>
         </div>
         <button 
           onClick={cancelLogin}
           style={{ 
-            padding: '8px 16px', 
+            padding: '10px 20px', 
             backgroundColor: 'transparent', 
             border: `1px solid ${colors.border}`, 
-            borderRadius: 6, 
+            borderRadius: 8, 
             color: colors.textMuted, 
             cursor: 'pointer', 
-            fontSize: 13 
+            fontSize: 14 
           }}
         >
           Cancel
@@ -220,7 +194,7 @@ function TelegramLoginButton({ onSuccess }: { onSuccess: (data: { token: string;
           backgroundColor: '#3f1f1f', 
           color: '#ff6b6b', 
           borderRadius: 8, 
-          marginBottom: 12, 
+          marginBottom: 16, 
           fontSize: 14,
           textAlign: 'center'
         }}>
@@ -233,55 +207,29 @@ function TelegramLoginButton({ onSuccess }: { onSuccess: (data: { token: string;
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          gap: 10,
+          gap: 12,
           width: '100%',
-          padding: '14px 24px',
+          padding: '16px 24px',
           backgroundColor: colors.telegram,
           color: 'white',
           border: 'none',
-          borderRadius: 8,
-          fontSize: 15,
+          borderRadius: 12,
+          fontSize: 16,
           fontWeight: 600,
           cursor: 'pointer',
         }}
       >
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
           <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.562 8.161c-.18 1.897-.962 6.502-1.359 8.627-.168.9-.5 1.201-.82 1.23-.697.064-1.226-.461-1.901-.903-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.139-5.062 3.345-.479.329-.913.489-1.302.481-.428-.009-1.252-.242-1.865-.442-.752-.244-1.349-.374-1.297-.789.027-.216.324-.437.893-.663 3.498-1.524 5.831-2.529 6.998-3.015 3.333-1.386 4.025-1.627 4.477-1.635.099-.002.321.023.465.141.121.099.154.232.17.325.015.094.034.31.019.478z"/>
         </svg>
         Continue with Telegram
       </button>
-      <p style={{ color: colors.textMuted, fontSize: 12, textAlign: 'center', marginTop: 8 }}>
-        Opens Telegram app for secure login
-      </p>
     </div>
   )
 }
 
-function LoginPage({ 
-  onLogin,
-  onLoginWithToken
-}: { 
-  onLogin: (email: string, password: string) => Promise<{ success: boolean; error?: string }>
-  onLoginWithToken: (data: { token: string; tenant: any }) => void
-}) {
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [error, setError] = useState('')
-  const [loading, setLoading] = useState(false)
+function LoginPage({ onLoginWithToken }: { onLoginWithToken: (data: { token: string; tenant: any }) => void }) {
   const navigate = useNavigate()
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setLoading(true)
-    setError('')
-    const result = await onLogin(email, password)
-    setLoading(false)
-    if (result.success) {
-      navigate('/')
-    } else {
-      setError(result.error || 'Invalid credentials')
-    }
-  }
 
   const handleTelegramSuccess = (data: { token: string; tenant: any }) => {
     onLoginWithToken(data)
@@ -290,138 +238,23 @@ function LoginPage({
 
   return (
     <div style={{ minHeight: '100vh', backgroundColor: colors.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
-      <div style={{ backgroundColor: colors.bgCard, padding: 40, borderRadius: 16, maxWidth: 420, width: '100%', border: `1px solid ${colors.border}` }}>
-        <div style={{ textAlign: 'center', marginBottom: 32 }}>
-          <h1 style={{ fontSize: 28, fontWeight: 700, color: colors.text, marginBottom: 8 }}>
+      <div style={{ backgroundColor: colors.bgCard, padding: 48, borderRadius: 20, maxWidth: 440, width: '100%', border: `1px solid ${colors.border}` }}>
+        <div style={{ textAlign: 'center', marginBottom: 40 }}>
+          <h1 style={{ fontSize: 32, fontWeight: 700, color: colors.text, marginBottom: 12 }}>
             <span style={{ color: colors.primary }}>Moongate</span> Booths
           </h1>
-          <p style={{ color: colors.textMuted, fontSize: 14, lineHeight: 1.5 }}>
-            Turn booth visitors into qualified leads with a Telegram bot
+          <p style={{ color: colors.textMuted, fontSize: 15, lineHeight: 1.6 }}>
+            Turn booth visitors into qualified leads<br />with your own Telegram bot
           </p>
         </div>
 
-        {/* Telegram Login - Primary */}
-        <div style={{ marginBottom: 24 }}>
-          <TelegramLoginButton onSuccess={handleTelegramSuccess} />
-        </div>
-
-        <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 24 }}>
-          <div style={{ flex: 1, height: 1, backgroundColor: colors.border }} />
-          <span style={{ color: colors.textMuted, fontSize: 12 }}>or with email</span>
-          <div style={{ flex: 1, height: 1, backgroundColor: colors.border }} />
-        </div>
+        {/* Telegram Login */}
+        <TelegramLoginButton onSuccess={handleTelegramSuccess} />
         
-        <form onSubmit={handleSubmit}>
-          {error && <div style={{ padding: 12, backgroundColor: '#3f1f1f', color: '#ff6b6b', borderRadius: 8, marginBottom: 16, fontSize: 14 }}>{error}</div>}
-          
-          <div style={{ marginBottom: 16 }}>
-            <input
-              type="email"
-              placeholder="Email"
-              value={email}
-              onChange={e => setEmail(e.target.value)}
-              style={inputStyle}
-              required
-            />
-          </div>
-          <div style={{ marginBottom: 24 }}>
-            <input
-              type="password"
-              placeholder="Password"
-              value={password}
-              onChange={e => setPassword(e.target.value)}
-              style={inputStyle}
-              required
-            />
-          </div>
-          <button type="submit" disabled={loading} style={{ ...buttonStyle, opacity: loading ? 0.7 : 1 }}>
-            {loading ? 'Signing in...' : 'Sign In'}
-          </button>
-        </form>
-        
-        <p style={{ marginTop: 24, textAlign: 'center', fontSize: 14, color: colors.textMuted }}>
-          Don't have an account? <Link to="/register" style={{ color: colors.primary, textDecoration: 'none' }}>Sign up</Link>
-        </p>
-      </div>
-    </div>
-  )
-}
-
-function RegisterPage({ 
-  onRegister,
-  onLoginWithToken
-}: { 
-  onRegister: (email: string, password: string) => Promise<{ success: boolean; error?: string }>
-  onLoginWithToken: (data: { token: string; tenant: any }) => void
-}) {
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [error, setError] = useState('')
-  const [loading, setLoading] = useState(false)
-  const navigate = useNavigate()
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setLoading(true)
-    setError('')
-    const result = await onRegister(email, password)
-    setLoading(false)
-    if (result.success) {
-      navigate('/')
-    } else {
-      setError(result.error || 'Registration failed')
-    }
-  }
-
-  const handleTelegramSuccess = (data: { token: string; tenant: any }) => {
-    onLoginWithToken(data)
-    navigate('/')
-  }
-
-  return (
-    <div style={{ minHeight: '100vh', backgroundColor: colors.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
-      <div style={{ backgroundColor: colors.bgCard, padding: 40, borderRadius: 16, maxWidth: 420, width: '100%', border: `1px solid ${colors.border}` }}>
-        <div style={{ textAlign: 'center', marginBottom: 32 }}>
-          <h1 style={{ fontSize: 28, fontWeight: 700, color: colors.text, marginBottom: 8 }}>
-            <span style={{ color: colors.primary }}>Moongate</span> Booths
-          </h1>
-          <p style={{ color: colors.textMuted, fontSize: 14, lineHeight: 1.5 }}>
-            Start capturing leads in minutes
-          </p>
-        </div>
-
-        {/* Telegram Login - Primary */}
-        <div style={{ marginBottom: 24 }}>
-          <TelegramLoginButton onSuccess={handleTelegramSuccess} />
-        </div>
-
-        <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 24 }}>
-          <div style={{ flex: 1, height: 1, backgroundColor: colors.border }} />
-          <span style={{ color: colors.textMuted, fontSize: 12 }}>or with email</span>
-          <div style={{ flex: 1, height: 1, backgroundColor: colors.border }} />
-        </div>
-        
-        <form onSubmit={handleSubmit}>
-          {error && <div style={{ padding: 12, backgroundColor: '#3f1f1f', color: '#ff6b6b', borderRadius: 8, marginBottom: 16, fontSize: 14 }}>{error}</div>}
-          
-          <div style={{ marginBottom: 16 }}>
-            <input type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} style={inputStyle} required />
-          </div>
-          <div style={{ marginBottom: 24 }}>
-            <input type="password" placeholder="Password (min 6 chars)" value={password} onChange={e => setPassword(e.target.value)} style={inputStyle} minLength={6} required />
-          </div>
-          <button type="submit" disabled={loading} style={{ ...buttonStyle, opacity: loading ? 0.7 : 1 }}>
-            {loading ? 'Creating account...' : 'Create Account'}
-          </button>
-        </form>
-        
-        <p style={{ marginTop: 24, textAlign: 'center', fontSize: 14, color: colors.textMuted }}>
-          Already have an account? <Link to="/login" style={{ color: colors.primary, textDecoration: 'none' }}>Sign in</Link>
-        </p>
-        
-        <div style={{ marginTop: 24, padding: 16, backgroundColor: colors.bg, borderRadius: 8, textAlign: 'center' }}>
-          <p style={{ color: colors.accent, fontSize: 13, fontWeight: 500 }}>🎁 Free for your first 25 leads</p>
-          <p style={{ color: colors.textMuted, fontSize: 12, marginTop: 4 }}>Then $100/mo per 1,000 leads captured</p>
+        {/* Pricing */}
+        <div style={{ marginTop: 32, padding: 16, backgroundColor: colors.bg, borderRadius: 10, textAlign: 'center' }}>
+          <p style={{ color: colors.accent, fontSize: 14, fontWeight: 500, marginBottom: 4 }}>🎁 Free for your first 25 leads</p>
+          <p style={{ color: colors.textMuted, fontSize: 13 }}>Then $100/mo per 1,000 leads captured</p>
         </div>
       </div>
     </div>
@@ -532,13 +365,12 @@ function DashboardPage({ user, onLogout }: { user: any, onLogout: () => void }) 
 }
 
 function AppContent() {
-  const { token, user, login, loginWithToken, register, logout } = useLocalAuth()
+  const { token, user, loginWithToken, logout } = useLocalAuth()
 
   if (!token) {
     return (
       <Routes>
-        <Route path="/register" element={<RegisterPage onRegister={register} onLoginWithToken={loginWithToken} />} />
-        <Route path="*" element={<LoginPage onLogin={login} onLoginWithToken={loginWithToken} />} />
+        <Route path="*" element={<LoginPage onLoginWithToken={loginWithToken} />} />
       </Routes>
     )
   }
