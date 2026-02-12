@@ -11,6 +11,8 @@ import { resetSessionAsync } from '../session'
 
 export function handleStartCommand() {
   return async (ctx: BotContext) => {
+    console.log(`[start] User ${ctx.from?.id} starting, botId: ${ctx.botId}`)
+    
     // Check for event deep link parameter
     const payload = ctx.match?.toString().trim()
     if (payload && payload.startsWith('event_')) {
@@ -35,6 +37,7 @@ export function handleStartCommand() {
     // Start onboarding flow
     ctx.session.state = ConversationState.COLLECTING_NAME
     ctx.session.visitorData = {}
+    console.log(`[start] Set state to COLLECTING_NAME for user ${ctx.from?.id}`)
     
     await ctx.reply(
       `👋 <b>Welcome!</b>\n\n` +

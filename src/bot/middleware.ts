@@ -74,7 +74,8 @@ export function billingMiddleware() {
     try {
       const bot = await findBotById(ctx.botId)
       if (!bot) {
-        return
+        console.error(`[billing] Bot not found: ${ctx.botId}`)
+        return next() // Continue anyway
       }
 
       // TODO: Get actual contact count from database
@@ -87,7 +88,7 @@ export function billingMiddleware() {
         if (message) {
           await ctx.reply(message)
         }
-        return
+        return // Only stop if over billing limit
       }
 
       await next()
