@@ -27,17 +27,19 @@ export interface UpdateVisitorData {
 }
 
 export async function createVisitor(data: CreateVisitorData): Promise<Visitor> {
-  // Use upsert to handle unique constraint on (bot_id, telegram_id)
+  // Use insert with ON CONFLICT handling
   const { data: visitor, error } = await supabase
     .from('bb_visitors')
     .upsert(data, { 
-      onConflict: 'bot_id,telegram_id',
-      ignoreDuplicates: false 
+      onConflict: 'bot_id,telegram_id'
     })
     .select()
     .single()
 
-  if (error) throw new Error(`Failed to create visitor: ${error.message}`)
+  if (error) {
+    console.error('[createVisitor] Error:', error)
+    throw new Error(`Failed to create visitor: ${error.message}`)
+  }
   return visitor
 }
 
